@@ -34,6 +34,9 @@ RAW_FEEDS = [
 
     # BROADCAST NETWORKS
     {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "http://rss.cnn.com/rss/cnn_topstories.rss"},
+    {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "http://rss.cnn.com/rss/edition_world.rss"},
+    {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "https://www.cnbc.com/id/100727362/device/rss/rss.html"},
+    {"category": "BROADCAST NETWORKS",     "country": "India",               "url": "http://feeds.feedburner.com/ndtvnews-world-news"},
     {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "https://feeds.npr.org/1001/rss.xml"},
     {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "https://moxie.foxnews.com/google-publisher/latest.xml"},
     {"category": "BROADCAST NETWORKS",     "country": "United States of America","url": "https://www.cbsnews.com/latest/rss/main"},
@@ -44,6 +47,8 @@ RAW_FEEDS = [
 
     # MAJOR NEWSPAPERS
     {"category": "MAJOR NEWSPAPERS",       "country": "United States of America","url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
+    {"category": "MAJOR NEWSPAPERS",       "country": "United States of America","url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
+    {"category": "MAJOR NEWSPAPERS",       "country": "India",               "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms"},
     {"category": "MAJOR NEWSPAPERS",       "country": "United States of America","url": "https://feeds.washingtonpost.com/rss/homepage"},
     {"category": "MAJOR NEWSPAPERS",       "country": "United States of America","url": "https://feeds.content.dowjones.io/public/rss/RSSWorldNews"},
     # Removed: USA Today, LA Times, Politico (broken)
@@ -65,6 +70,14 @@ RAW_FEEDS = [
 
     # GLOBAL ENGLISH FEEDS
     # Removed: CBC, Globe & Mail (broken)
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Canada",               "url": "https://www.cbc.ca/cmlink/rss-topstories"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Canada",               "url": "https://globalnews.ca/feed/"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Brazil",               "url": "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Germany",              "url": "http://newsfeed.zeit.de/index"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Germany",              "url": "http://www.tagesschau.de/xml/rss2"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "France",               "url": "https://www.lemonde.fr/rss/une.xml"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "Spain",                "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada"},
+    {"category": "GLOBAL ENGLISH FEEDS",   "country": "United States of America","url": "https://news.google.com/rss"},
     {"category": "GLOBAL ENGLISH FEEDS",   "country": "Australia",             "url": "https://www.abc.net.au/news/feed/51120/rss.xml"},
     {"category": "GLOBAL ENGLISH FEEDS",   "country": "Australia",             "url": "https://www.smh.com.au/rss/feed.xml"},
     # Removed: NZ Herald (broken)
@@ -81,12 +94,25 @@ RAW_FEEDS = [
 
     # TECH & FINANCE FEEDS
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://feeds.bloomberg.com/markets/news.rss"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.investing.com/rss/news.rss"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://seekingalpha.com/market_currents.xml"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.forbes.com/business/feed/"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://fortune.com/feed"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://finance.yahoo.com/news/rssindex"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.forbes.com/most-popular/feed/"},
-    # Removed: The Economist (broken)
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://techcrunch.com/feed/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.theverge.com/rss/index.xml"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.wired.com/feed/rss"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://feeds.arstechnica.com/arstechnica/index"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.cnet.com/rss/news/"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://gizmodo.com/rss"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://news.ycombinator.com/rss"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "http://feeds.mashable.com/Mashable"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "http://rss.slashdot.org/Slashdot/slashdotMain"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.blog.google/rss/"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://thenextweb.com/feed/"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.engadget.com/rss.xml"},
+
 ]
 
 _seen: set[str] = set()
@@ -160,18 +186,23 @@ def _fetch_one(feed: dict) -> list[dict]:
 
 
 @app.get("/news")
-def get_news():
+def get_news(limit: int = None):
     now = time.time()
     if _NEWS_CACHE["data"] is not None and (now - _NEWS_CACHE["ts"]) < NEWS_CACHE_TTL:
-        return _NEWS_CACHE["data"]
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        results = list(pool.map(_fetch_one, FEEDS))
-    stories: list[dict] = []
-    for batch in results:
-        stories.extend(batch)
-    _NEWS_CACHE["data"] = stories
-    _NEWS_CACHE["ts"] = now
-    return stories
+        data = _NEWS_CACHE["data"]
+    else:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            results = list(pool.map(_fetch_one, FEEDS))
+        stories: list[dict] = []
+        for batch in results:
+            stories.extend(batch)
+        _NEWS_CACHE["data"] = stories
+        _NEWS_CACHE["ts"] = now
+        data = stories
+    
+    if limit is not None:
+        return data[:limit]
+    return data
 
 
 @app.get("/stocks/search")
@@ -215,7 +246,7 @@ def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
     if not re.match(SYMBOL_REGEX, sym):
         raise HTTPException(status_code=400, detail="Invalid symbol format")
 
-    valid_ranges = {"1d", "5d", "1mo", "3mo", "1y"}
+    valid_ranges = {"1d", "5d", "1mo", "3mo", "1y", "max"}
     if range not in valid_ranges:
         range = "1y"
 

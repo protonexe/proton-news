@@ -328,6 +328,7 @@
           <button data-range="1mo">[ 1M ]</button>
           <button data-range="3mo">[ 3M ]</button>
           <button data-range="1y" class="active">[ 1Y ]</button>
+          <button data-range="max">[ ALL ]</button>
         </div>
       </div>
       <div id="ticker-row"></div>
@@ -443,15 +444,28 @@
       const container = document.getElementById("news-container");
       const badge = document.getElementById("topnav-badge");
       try {
-        const res = await fetch(API_URL);
-        if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
-        const stories = await res.json();
+        // 1. Fast load: First 10 items
+        const fastRes = await fetch(`${API_URL}?limit=10`);
+        if (!fastRes.ok) throw new Error("HTTP " + fastRes.status);
+        const initialStories = await fastRes.json();
+        
+        container.innerHTML = "";
+        initialStories.forEach((story, i) => container.appendChild(renderStory(story, i)));
+        status.textContent = "[" + new Date().toLocaleTimeString() + "] partial signal received... loading full stream";
+
+        // 2. Background load: Full list
+        const fullRes = await fetch(API_URL);
+        if (!fullRes.ok) throw new Error("HTTP " + fullRes.status);
+        const stories = await fullRes.json();
         allStories = stories;
+
         status.textContent =
-          "[" + new Date().toLocaleTimeString() + "] signal received :: " +
-          stories.length + " headline(s) decoded.";
+          "[" + new Date().toLocaleTimeString() + "] signal fully decoded :: " +
+          stories.length + " headline(s) online.";
+        
         container.innerHTML = "";
         stories.forEach((story, i) => container.appendChild(renderStory(story, i)));
+
         const cset = new Set(stories.map(s => s.country).filter(Boolean));
         badge.textContent = cset.size + " country nodes online";
         if (mapLoaded) {
