@@ -44,6 +44,12 @@ python backend.py
 ```
 The terminal will be available at `http://127.0.0.1:6767`
 
+## AI Disclosure
+
+AI was used in the making of this project to assist with development.
+
+
+
 ## 📜 License
 
 MIT
