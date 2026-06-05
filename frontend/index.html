@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PROTON NEWS // CRT TERMINAL v1.0</title>
+  <link rel="stylesheet" href="https://unpkg.com/terminal.css@0.7.4/dist/terminal.min.css" />
+  <style>
+    :root {
+      --bg: #050505;
+      --fg: #33ff33;
+      --dim: #1a8a1a;
+      --hi:  #aaffaa;
+    }
+    html, body {
+      background: #050505 !important;
+      color: #33ff33 !important;
+      font-family: "Courier New", ui-monospace, monospace;
+      min-height: 100vh;
+      margin: 0;
+    }
+    body {
+      text-shadow: 0 0 4px rgba(51, 255, 51, 0.45);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0)    0px,
+        rgba(0, 0, 0, 0)    2px,
+        rgba(0, 0, 0, 0.28) 3px,
+        rgba(0, 0, 0, 0.28) 4px
+      );
+    }
+    h1, h2, h3, p, label, span, div, button, small {
+      color: #33ff33 !important;
+    }
+    a {
+      color: #33ff33 !important;
+      text-decoration: underline;
+    }
+    a:hover {
+      background: #33ff33;
+      color: #050505 !important;
+    }
+    fieldset {
+      border: 1px solid #33ff33 !important;
+      background: rgba(0, 40, 0, 0.35) !important;
+      margin-bottom: 1rem;
+      padding: 1rem 1.25rem;
+    }
+    legend {
+      color: #33ff33 !important;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 0 0.5rem;
+    }
+    .prompt { color: #33ff33; }
+    
+    #footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding: 1rem 0;
+      font-size: 0.8rem;
+      color: #1a8a1a !important;
+      letter-spacing: 1px;
+    }
+    #footer a {
+      color: #33ff33 !important;
+      text-decoration: none;
+      border-bottom: 1px dotted #33ff33;
+    }
+    #footer a:hover {
+      background: #33ff33;
+      color: #050505 !important;
+    }
+
+    /* ===== TOP NAV ===== */
+    #topnav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.6rem 0.5rem;
+      margin: 0 0 1rem 0;
+      background: rgba(0, 20, 0, 0.92);
+      border-bottom: 1px solid #33ff33;
+    }
+    #topnav button {
+      background: transparent;
+      color: #33ff33 !important;
+      border: 1px solid #33ff33;
+      padding: 0.35rem 0.9rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #topnav button:hover {
+      background: #0a3a0a;
+    }
+    #topnav button.active {
+      background: #33ff33;
+      color: #050505 !important;
+      text-shadow: none;
+    }
+    #topnav .badge {
+      margin-left: auto;
+      align-self: center;
+      color: #1a8a1a !important;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+    }
+
+    /* ===== SECTIONS ===== */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    #news-container { margin-top: 1.25rem; }
+    .story-title { margin: 0 0 0.5rem 0; }
+    .story-link  { display: inline-block; margin-top: 0.5rem; }
+    .story-meta  { color: #1a8a1a !important; font-size: 0.8rem; margin: 0 0 0.4rem 0; }
+
+    /* ===== STOCKS ===== */
+    #stock-search-wrap {
+      margin: 0.5rem 0 1.5rem 0;
+      border: 1px dashed #1a8a1a;
+      padding: 1rem;
+      background: rgba(0, 20, 0, 0.4);
+    }
+    #stock-query {
+      flex: 1;
+      background: #050505;
+      color: #33ff33;
+      border: 1px solid #33ff33;
+      padding: 0.4rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    #btn-stock-search {
+      background: transparent;
+      color: #33ff33 !important;
+      border: 1px solid #33ff33;
+      padding: 0.4rem 1.2rem;
+      font-family: inherit;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #btn-stock-search:hover {
+      background: #0a3a0a;
+    }
+    #stock-search-results {
+      margin-top: 0.75rem;
+      max-height: 220px;
+      overflow-y: auto;
+      border-top: 1px dashed #1a8a1a;
+      padding-top: 0.5rem;
+    }
+    .search-result-item {
+      background: transparent;
+      border: 1px solid #1a8a1a;
+      color: #33ff33 !important;
+      padding: 0.4rem 0.6rem;
+      margin: 0.25rem 0;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: block;
+    }
+    .search-result-item:hover {
+      background: #0a3a0a;
+      border-color: #33ff33;
+    }
+    #ticker-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.75rem 0 1.25rem 0;
+    }
+    #ticker-row button {
+      background: transparent;
+      color: #33ff33 !important;
+      border: 1px solid #33ff33;
+      padding: 0.3rem 0.7rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+    #ticker-row button:hover { background: #0a3a0a; }
+    #ticker-row button.active {
+      background: #33ff33;
+      color: #050505 !important;
+      text-shadow: none;
+    }
+    #range-row button {
+      background: transparent;
+      color: #1a8a1a !important;
+      border: 1px solid #1a8a1a;
+      padding: 0.2rem 0.5rem;
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #range-row button:hover {
+      color: #33ff33 !important;
+      border-color: #33ff33;
+    }
+    #range-row button.active {
+      background: #33ff33;
+      color: #050505 !important;
+      border-color: #33ff33;
+      text-shadow: none;
+    }
+    #stock-chart-wrap {
+      border: 1px solid #33ff33;
+      background: rgba(0, 40, 0, 0.35);
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    #stock-chart-wrap canvas { height: 360px !important; width: 100% !important; }
+    #stock-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.5rem;
+    }
+    #stock-stats .stat {
+      border: 1px solid #1a8a1a;
+      padding: 0.6rem 0.8rem;
+      background: rgba(0, 30, 0, 0.45);
+    }
+    #stock-stats .stat .k { color: #1a8a1a !important; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+    #stock-stats .stat .v { color: #33ff33 !important; font-size: 1.15rem; margin-top: 0.2rem; }
+    #stock-stats .stat .v.pos { color: #33ff33 !important; }
+    #stock-stats .stat .v.neg { color: #ff5555 !important; }
+    #stock-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+    #stock-head .name  { color: #1a8a1a !important; font-size: 0.85rem; letter-spacing: 1px; }
+    #stock-head .last  { color: #33ff33 !important; font-size: 2rem; }
+    #stock-head .chg   { font-size: 1rem; }
+    #stock-head .chg.pos { color: #33ff33 !important; }
+    #stock-head .chg.neg { color: #ff5555 !important; }
+
+    /* ===== GLOBE ===== */
+    #globe-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 800px) {
+      #globe-layout { grid-template-columns: 1fr; }
+    }
+    #worldmap-wrap {
+      border: 1px solid #33ff33;
+      background: rgba(0, 40, 0, 0.35);
+      padding: 0.5rem;
+    }
+    #worldmap { width: 100%; height: auto; display: block; }
+    #worldmap path {
+      fill: #0a3a0a;
+      stroke: #33ff33;
+      stroke-width: 0.4;
+      cursor: pointer;
+      transition: fill 0.1s;
+    }
+    #worldmap path.has-feed  { fill: #1a6a1a; }
+    #worldmap path:hover     { fill: #33ff33; }
+    #worldmap path.selected  { fill: #aaffaa; }
+    #country-news {
+      max-height: 75vh;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+    #country-news .empty { color: #1a8a1a !important; font-style: italic; }
+  </style>
+</head>
+<body class="terminal">
+  <div class="container">
+    <h1>&gt; PROTON-NEWS_v1.0</h1>
+    <p class="prompt">$ ./fetch_headlines --live --source=127.0.0.1:8000</p>
+
+    <nav id="topnav">
+      <button data-section="news"   class="active">[ NEWS   ]</button>
+      <button data-section="stocks">      [ STOCKS ]</button>
+      <button data-section="globe">       [ GLOBE  ]</button>
+      <span class="badge" id="topnav-badge"></span>
+    </nav>
+
+    <!-- ============= NEWS ============= -->
+    <section id="sec-news" class="section active">
+      <p id="status">loading...</p>
+      <hr />
+      <div id="news-container"></div>
+    </section>
+
+    <!-- ============= STOCKS ============= -->
+    <section id="sec-stocks" class="section">
+      <!-- STOCK SEARCH MODULE -->
+      <div id="stock-search-wrap">
+        <label for="stock-query" style="display:block; margin-bottom:0.5rem; font-weight:bold;">[ SEARCH DIRECTORY: STOCKS / COMMODITIES / BONDS / CRYPTO ]</label>
+        <div style="display:flex; gap:0.5rem;">
+          <input type="text" id="stock-query" placeholder="e.g. AAPL, Gold, Crude Oil, 10-year, BTC-USD..." />
+          <button id="btn-stock-search">[ SEARCH ]</button>
+        </div>
+        <div id="stock-search-results" style="display:none;"></div>
+      </div>
+
+      <p id="stock-status">loading ticker list...</p>
+
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-top: 1rem;">
+        <label style="font-weight:bold;">[ TICKER INDEX ]</label>
+        <div id="range-row" style="display:flex; gap:0.3rem;">
+          <button data-range="1d">[ 1D ]</button>
+          <button data-range="5d">[ 5D ]</button>
+          <button data-range="1mo">[ 1M ]</button>
+          <button data-range="3mo">[ 3M ]</button>
+          <button data-range="1y" class="active">[ 1Y ]</button>
+        </div>
+      </div>
+      <div id="ticker-row"></div>
+
+      <div id="stock-head" style="display:none">
+        <span class="name" id="stock-name"></span>
+        <span class="last" id="stock-last"></span>
+        <span class="chg"  id="stock-chg"></span>
+      </div>
+      <div id="stock-chart-wrap">
+        <canvas id="stock-chart"></canvas>
+      </div>
+      <div id="stock-stats"></div>
+    </section>
+
+    <!-- ============= GLOBE ============= -->
+    <section id="sec-globe" class="section">
+      <p id="globe-status">loading map...</p>
+      <div id="globe-layout">
+        <div id="worldmap-wrap">
+          <svg id="worldmap" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div id="country-news">
+          <p class="empty">click a country on the map to see its news.</p>
+        </div>
+      </div>
+    </section>
+    <div id="footer">made with ❤️ by <a href="https://github.com/protonexe">proton</a></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+  <script>
+    "use strict";
+
+    const API_URL  = "/news";
+    const TICKERS  = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "^GSPC", "^DJI", "^IXIC"];
+
+    // ============= STATE =============
+    let allStories     = [];
+    let stockChart     = null;
+    let mapLoaded      = false;
+    let currentSymbol  = "AAPL";
+    let currentRange   = "1y";
+
+    // ============= NAV =============
+    function setSection(name) {
+      document.querySelectorAll("#topnav button").forEach(b => {
+        b.classList.toggle("active", b.dataset.section === name);
+      });
+      document.querySelectorAll(".section").forEach(s => {
+        s.classList.toggle("active", s.id === "sec-" + name);
+      });
+      if (name === "stocks") {
+        initStocks();
+      } else if (name === "globe") {
+        initGlobe();
+      }
+    }
+    document.querySelectorAll("#topnav button").forEach(b => {
+      b.addEventListener("click", () => setSection(b.dataset.section));
+    });
+
+    // ============= UTIL =============
+    function pad2(n) { return String(n).padStart(2, "0"); }
+    function fmtNum(n, d = 2) {
+      if (n === null || n === undefined || Number.isNaN(n)) return "—";
+      return Number(n).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function fmtPct(n) {
+      if (n === null || n === undefined || Number.isNaN(n)) return "—";
+      const s = (n >= 0 ? "+" : "") + Number(n).toFixed(2) + "%";
+      return s;
+    }
+    function fmtVol(n) {
+      if (n === null || n === undefined) return "—";
+      return Math.round(Number(n)).toLocaleString();
+    }
+
+    // ============= NEWS =============
+    function renderStory(story, index) {
+      const fs = document.createElement("fieldset");
+      const lg = document.createElement("legend");
+      const country = story.country ? "  //  " + story.country : "";
+      lg.textContent =
+        " [ " + String(story.category || "UNKNOWN").toUpperCase() +
+        " ] // entry " + pad2(index + 1) + country;
+      fs.appendChild(lg);
+
+      const h = document.createElement("h3");
+      h.className = "story-title";
+      h.textContent = story.title || "Untitled";
+      fs.appendChild(h);
+
+      const p = document.createElement("p");
+      p.textContent = story.summary || "[No summary available]";
+      fs.appendChild(p);
+
+      const a = document.createElement("a");
+      a.href = story.link || "#";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.className = "story-link";
+      a.textContent = ">> open source";
+      fs.appendChild(a);
+
+      return fs;
+    }
+
+    async function loadNews() {
+      const status = document.getElementById("status");
+      const container = document.getElementById("news-container");
+      const badge = document.getElementById("topnav-badge");
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
+        const stories = await res.json();
+        allStories = stories;
+        status.textContent =
+          "[" + new Date().toLocaleTimeString() + "] signal received :: " +
+          stories.length + " headline(s) decoded.";
+        container.innerHTML = "";
+        stories.forEach((story, i) => container.appendChild(renderStory(story, i)));
+        const cset = new Set(stories.map(s => s.country).filter(Boolean));
+        badge.textContent = cset.size + " country nodes online";
+        if (mapLoaded) {
+          highlightMapCountries(cset);
+        }
+      } catch (err) {
+        status.textContent =
+          "[ERROR] could not reach backend at " + API_URL + " :: " + err.message;
+      }
+    }
+
+    // ============= STOCKS =============
+    function buildTickerRow() {
+      const row = document.getElementById("ticker-row");
+      if (row.children.length) return;
+      TICKERS.forEach(sym => {
+        const b = document.createElement("button");
+        b.textContent = sym;
+        b.dataset.sym = sym;
+        b.addEventListener("click", () => {
+          row.querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+          currentSymbol = sym;
+          loadStock(sym, currentRange);
+        });
+        row.appendChild(b);
+      });
+    }
+
+    function renderStockStats(s) {
+      const stats = document.getElementById("stock-stats");
+      const chgCls = s.change >= 0 ? "pos" : "neg";
+      const cells = [
+        ["Symbol",         s.symbol],
+        ["Currency",       s.currency || "—"],
+        ["Exchange",       s.exchange || "—"],
+        ["Previous Close", fmtNum(s.previousClose)],
+        ["Day Open",       fmtNum(s.dayOpen)],
+        ["Day High",       fmtNum(s.dayHigh)],
+        ["Day Low",        fmtNum(s.dayLow)],
+        ["Volume",         fmtVol(s.volume)],
+        ["52-Week High",   fmtNum(s.fiftyTwoHigh)],
+        ["52-Week Low",    fmtNum(s.fiftyTwoLow)],
+      ];
+      stats.innerHTML = "";
+      cells.forEach(([k, v]) => {
+        const div = document.createElement("div");
+        div.className = "stat";
+        const kk = document.createElement("div"); kk.className = "k"; kk.textContent = k;
+        const vv = document.createElement("div"); vv.className = "v"; vv.textContent = v;
+        div.appendChild(kk); div.appendChild(vv);
+        stats.appendChild(div);
+      });
+      const changeCell = document.createElement("div");
+      changeCell.className = "stat";
+      const k1 = document.createElement("div"); k1.className = "k"; k1.textContent = "Change";
+      const v1 = document.createElement("div"); v1.className = "v " + chgCls;
+      v1.textContent = fmtNum(s.change) + "  (" + fmtPct(s.changePct) + ")";
+      changeCell.appendChild(k1); changeCell.appendChild(v1);
+      stats.appendChild(changeCell);
+    }
+
+    function renderStockChart(s) {
+      const labels = s.history.map(p => p.date);
+      const closes = s.history.map(p => p.close);
+      const canvas = document.getElementById("stock-chart");
+      const ctx = canvas.getContext("2d");
+
+      if (stockChart) {
+        stockChart.data.labels = labels;
+        stockChart.data.datasets[0].label = s.symbol + " close (" + currentRange.toUpperCase() + ")";
+        stockChart.data.datasets[0].data = closes;
+        stockChart.update("none");
+        return;
+      }
+      stockChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: s.symbol + " close (" + currentRange.toUpperCase() + ")",
+            data: closes,
+            borderColor: "#33ff33",
+            backgroundColor: "rgba(51, 255, 51, 0.12)",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+            fill: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          events: [],
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          scales: {
+            x: {
+              ticks: { 
+                color: "#33ff33", 
+                autoSkip: true, 
+                maxTicksLimit: 10,
+                font: { family: "Courier New" },
+                maxRotation: 0,
+                minRotation: 0
+              },
+              grid:  { color: "rgba(51, 255, 51, 0.10)" },
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              beginAtZero: false,
+              ticks: { color: "#33ff33", font: { family: "Courier New" } },
+              grid:  { color: "rgba(51, 255, 51, 0.10)" },
+            },
+          },
+        },
+      });
+    }
+
+    function renderStockHead(s) {
+      const head = document.getElementById("stock-head");
+      head.style.display = "flex";
+      document.getElementById("stock-name").textContent = s.name + "  (" + s.symbol + ")";
+      document.getElementById("stock-last").textContent = fmtNum(s.last);
+      const chg = document.getElementById("stock-chg");
+      chg.textContent = (s.change >= 0 ? "▲ " : "▼ ") + fmtNum(Math.abs(s.change)) +
+                        "  (" + fmtPct(s.changePct) + ")";
+      chg.className = "chg " + (s.change >= 0 ? "pos" : "neg");
+    }
+
+    async function loadStock(sym, range = "1y") {
+      const status = document.getElementById("stock-status");
+      status.textContent = "fetching " + sym + " (" + range.toUpperCase() + ") from yahoo...";
+      try {
+        const url = `/stocks/${encodeURIComponent(sym)}?range=${encodeURIComponent(range)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+        const s = await res.json();
+        renderStockHead(s);
+        renderStockChart(s);
+        renderStockStats(s);
+        status.textContent = "[" + new Date().toLocaleTimeString() + "] " + sym + " (" + range.toUpperCase() + ") decoded.";
+      } catch (err) {
+        status.textContent = "[ERROR] " + sym + " :: " + err.message;
+      }
+    }
+
+    function setupSearch() {
+      const qInput  = document.getElementById("stock-query");
+      const sButton = document.getElementById("btn-stock-search");
+      const rBox    = document.getElementById("stock-search-results");
+
+      async function executeSearch() {
+        const query = qInput.value.trim();
+        if (!query) return;
+        rBox.style.display = "block";
+        rBox.innerHTML = "<p class='prompt'>searching database directory...</p>";
+        try {
+          const res = await fetch(`/stocks/search?q=${encodeURIComponent(query)}`);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const results = await res.json();
+          rBox.innerHTML = "";
+          if (!results.length) {
+            rBox.innerHTML = "<p class='empty'>no matching symbols found in index.</p>";
+            return;
+          }
+          results.forEach(item => {
+            const btn = document.createElement("button");
+            btn.className = "search-result-item";
+            btn.textContent = `[${item.symbol}]  ${item.name}  —  Type: ${item.quoteType} (${item.exchange})`;
+            btn.addEventListener("click", () => {
+              currentSymbol = item.symbol;
+              document.querySelectorAll("#ticker-row button").forEach(b => b.classList.remove("active"));
+              loadStock(item.symbol, currentRange);
+              rBox.style.display = "none";
+              qInput.value = "";
+            });
+            rBox.appendChild(btn);
+          });
+        } catch (err) {
+          rBox.innerHTML = `<p class='empty'>[SEARCH ERROR] :: ${err.message}</p>`;
+        }
+      }
+
+      sButton.addEventListener("click", executeSearch);
+      qInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") executeSearch();
+      });
+    }
+
+    function setupRangeSelector() {
+      document.querySelectorAll("#range-row button").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll("#range-row button").forEach(x => x.classList.toggle("active", x === b));
+          currentRange = b.dataset.range;
+          loadStock(currentSymbol, currentRange);
+        });
+      });
+    }
+
+    function initStocks() {
+      const status = document.getElementById("stock-status");
+      if (status.textContent.startsWith("loading ticker")) {
+        status.textContent = "ready.";
+      }
+      buildTickerRow();
+      setupRangeSelector();
+      setupSearch();
+      if (!stockChart) {
+        loadStock(currentSymbol, currentRange);
+      }
+    }
+
+    // ============= GLOBE =============
+    const TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+    function highlightMapCountries(cset) {
+      const svg = document.getElementById("worldmap");
+      svg.querySelectorAll("path").forEach(p => {
+        const n = p.__name;
+        p.classList.toggle("has-feed", cset.has(n));
+      });
+    }
+
+    function renderCountryNews(countryName) {
+      const box = document.getElementById("country-news");
+      box.innerHTML = "";
+      const stories = allStories.filter(s => s.country === countryName);
+      const head = document.createElement("fieldset");
+      const lg = document.createElement("legend");
+      lg.textContent = " [ " + countryName.toUpperCase() + " ] // " + stories.length + " headline(s)";
+      head.appendChild(lg);
+      if (!stories.length) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = "no sources from this country.";
+        head.appendChild(p);
+      } else {
+        stories.forEach((s, i) => {
+          const h = document.createElement("h3");
+          h.style.margin = "0.4rem 0 0.3rem 0";
+          h.textContent = s.title;
+          head.appendChild(h);
+          const m = document.createElement("p");
+          m.className = "story-meta";
+          m.textContent = s.category + (s.link ? "  //  " + s.link : "");
+          head.appendChild(m);
+        });
+      }
+      box.appendChild(head);
+    }
+
+    function buildMap(topology) {
+      const svg = d3.select("#worldmap");
+      svg.selectAll("*").remove();
+      const geojson = topojson.feature(topology, topology.objects.countries);
+      const features = geojson.features;
+      const projection = d3.geoNaturalEarth1().fitSize([800, 500], geojson);
+      const path = d3.geoPath(projection);
+      const cset = new Set(allStories.map(s => s.country).filter(Boolean));
+      svg.selectAll("path")
+        .data(features)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .attr("__name", d => d.properties.name)
+        .each(function(d) { this.__name = d.properties.name; })
+        .classed("has-feed", d => cset.has(d.properties.name))
+        .on("click", function(event, d) {
+          svg.selectAll("path").classed("selected", false);
+          d3.select(this).classed("selected", true);
+          renderCountryNews(d.properties.name);
+        })
+        .append("title")
+        .text(d => d.properties.name + (cset.has(d.properties.name) ? "  ●" : ""));
+      mapLoaded = true;
+    }
+
+    async function initGlobe() {
+      const status = document.getElementById("globe-status");
+      if (mapLoaded) {
+        status.textContent = "ready. click any highlighted country.";
+        return;
+      }
+      status.textContent = "fetching world atlas...";
+      try {
+        const topo = await d3.json(TOPOJSON_URL);
+        buildMap(topo);
+        status.textContent = "ready. click any highlighted country.";
+      } catch (err) {
+        status.textContent = "[ERROR] could not load map: " + err.message;
+      }
+    }
+
+    // ============= BOOT =============
+    loadNews();
+  </script>
+</body>
+</html>
