@@ -191,11 +191,17 @@ def get_news(limit: int = None):
     if _NEWS_CACHE["data"] is not None and (now - _NEWS_CACHE["ts"]) < NEWS_CACHE_TTL:
         data = _NEWS_CACHE["data"]
     else:
+        # If limit is requested and cache is empty, only fetch a few sources for speed
+        feeds_to_fetch = FEEDS
+        if limit is not None and _NEWS_CACHE["data"] is None:
+            feeds_to_fetch = FEEDS[:limit * 2]
+        
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-            results = list(pool.map(_fetch_one, FEEDS))
+            results = list(pool.map(_fetch_one, feeds_to_fetch))
         stories: list[dict] = []
         for batch in results:
             stories.extend(batch)
+        
         _NEWS_CACHE["data"] = stories
         _NEWS_CACHE["ts"] = now
         data = stories
