@@ -240,7 +240,17 @@ def search_stocks(q: str):
         raise HTTPException(status_code=502, detail=f"Search failed: {exc}")
 
 
+@app.get("/weather")
+def get_weather(lat: float, lon: float):
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+    try:
+        body = urllib.request.urlopen(url, timeout=10).read()
+        return json.loads(body).get("current_weather", {})
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Weather fetch failed: {exc}")
+
 @app.get("/stocks/{symbol}")
+
 def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
     sym = symbol.strip().upper()
     if not re.match(SYMBOL_REGEX, sym):
@@ -250,14 +260,18 @@ def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
     if range not in valid_ranges:
         range = "1y"
 
+    # ... (existing stock range logic)
     intervals = {
         "1d": "5m",
         "5d": "15m",
         "1mo": "1h",
         "3mo": "1d",
         "1y": "1d",
+        "max": "1d",
     }
     interval = intervals[range]
+    # ...
+
 
     url = (
         "https://query1.finance.yahoo.com/v8/finance/chart/"
@@ -335,6 +349,23 @@ def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
             "volume": safe(vols_raw, i),
         })
 
+    # ... (existing logic up to the return statement)
+    
+    # Fetch additional summary metrics
+    summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{sym}?modules=defaultKeyStatistics,financialData"
+    summary_req = urllib.request.Request(summary_url, headers={"User-Agent": _YAHOO_UA})
+    summary_data = {}
+    try:
+        summary_body = urllib.request.urlopen(summary_req, timeout=10).read()
+        summary_json = json.loads(summary_body)
+        res_sum = summary_json.get("quoteSummary", {}).get("result", [{}])[0]
+        summary_data = res_sum
+    except:
+        pass
+
+    def get_sum(module, key):
+        return summary_data.get(module, {}).get(key, {}).get("raw", "—")
+
     return {
         "symbol":         sym,
         "name":           m.get("longName") or m.get("shortName") or sym,
@@ -351,7 +382,13 @@ def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
         "fiftyTwoHigh":   m.get("fiftyTwoWeekHigh") or (max(highs_52w) if highs_52w else None),
         "fiftyTwoLow":    m.get("fiftyTwoWeekLow")  or (min(lows_52w)  if lows_52w  else None),
         "history":        history,
+        "metrics": {
+            "pe": get_sum("defaultKeyStatistics", "trailingPE"),
+            "marketCap": get_sum("defaultKeyStatistics", "marketCap"),
+            "dividend": get_sum("summaryDetail", "dividendYield"),
+        }
     }
+
 
 
 # Serve the frontend (index.html) as a real website at "/"

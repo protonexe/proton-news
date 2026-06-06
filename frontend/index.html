@@ -12,15 +12,53 @@
       --dim: #1a8a1a;
       --hi:  #aaffaa;
     }
+    .theme-amber {
+      --bg: #1a1000;
+      --fg: #ffb000;
+      --dim: #8a6000;
+      --hi:  #ffdc7a;
+    }
+    .theme-blue {
+      --bg: #00051a;
+      --fg: #00aaff;
+      --dim: #004a8a;
+      --hi:  #aaddff;
+    }
     html, body {
-      background: #050505 !important;
-      color: #33ff33 !important;
+      background: var(--bg) !important;
+      color: var(--fg) !important;
       font-family: "Courier New", ui-monospace, monospace;
       min-height: 100vh;
       margin: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      padding-bottom: 4rem;
     }
     body {
-      text-shadow: 0 0 4px rgba(51, 255, 51, 0.45);
+      text-shadow: 0 0 4px var(--fg);
+    }
+    @keyframes flicker {
+      0% { opacity: 0.97; }
+      5% { opacity: 0.95; }
+      10% { opacity: 0.9; }
+      15% { opacity: 0.95; }
+      20% { opacity: 0.98; }
+      100% { opacity: 1; }
+    }
+    body::after {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: rgba(18, 16, 16, 0.1);
+      opacity: 0;
+      z-index: 10000;
+      pointer-events: none;
+      animation: flicker 0.15s infinite;
     }
     body::before {
       content: "";
@@ -37,47 +75,48 @@
       );
     }
     h1, h2, h3, p, label, span, div, button, small {
-      color: #33ff33 !important;
+      color: var(--fg) !important;
     }
     a {
-      color: #33ff33 !important;
+      color: var(--fg) !important;
       text-decoration: underline;
     }
     a:hover {
-      background: #33ff33;
-      color: #050505 !important;
+      background: var(--fg);
+      color: var(--bg) !important;
     }
     fieldset {
-      border: 1px solid #33ff33 !important;
-      background: rgba(0, 40, 0, 0.35) !important;
+      border: 1px solid var(--fg) !important;
+      background: rgba(0, 40, 0, 0.1) !important;
       margin-bottom: 1rem;
       padding: 1rem 1.25rem;
     }
     legend {
-      color: #33ff33 !important;
+      color: var(--fg) !important;
       text-transform: uppercase;
       letter-spacing: 2px;
       padding: 0 0.5rem;
     }
-    .prompt { color: #33ff33; }
+    .prompt { color: var(--fg); }
     
     #footer {
       text-align: center;
       margin-top: 3rem;
       padding: 1rem 0;
       font-size: 0.8rem;
-      color: #1a8a1a !important;
+      color: var(--dim) !important;
       letter-spacing: 1px;
     }
     #footer a {
-      color: #33ff33 !important;
+      color: var(--fg) !important;
       text-decoration: none;
-      border-bottom: 1px dotted #33ff33;
+      border-bottom: 1px dotted var(--fg);
     }
     #footer a:hover {
-      background: #33ff33;
-      color: #050505 !important;
+      background: var(--fg);
+      color: var(--bg) !important;
     }
+
 
     /* ===== TOP NAV ===== */
     #topnav {
@@ -93,8 +132,8 @@
     }
     #topnav button {
       background: transparent;
-      color: #33ff33 !important;
-      border: 1px solid #33ff33;
+      color: var(--fg) !important;
+      border: 1px solid var(--fg);
       padding: 0.35rem 0.9rem;
       font-family: inherit;
       font-size: 0.95rem;
@@ -103,20 +142,62 @@
       text-transform: uppercase;
     }
     #topnav button:hover {
-      background: #0a3a0a;
+      background: rgba(0, 255, 0, 0.1);
     }
     #topnav button.active {
-      background: #33ff33;
-      color: #050505 !important;
+      background: var(--fg);
+      color: var(--bg) !important;
       text-shadow: none;
     }
     #topnav .badge {
       margin-left: auto;
       align-self: center;
-      color: #1a8a1a !important;
+      color: var(--dim) !important;
       font-size: 0.8rem;
       letter-spacing: 1px;
     }
+    #marquee-wrap {
+      background: var(--dim);
+      color: var(--bg) !important;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 2px 0;
+      font-size: 0.85rem;
+      font-weight: bold;
+      border-bottom: 1px solid var(--fg);
+    }
+    #marquee-text {
+      display: inline-block;
+      padding-left: 100%;
+      animation: marquee 30s linear infinite;
+    }
+    @keyframes marquee {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-100%, 0); }
+    }
+    #cli-wrap {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.95);
+      border-top: 1px solid var(--fg);
+      padding: 0.5rem;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #cli-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+    }
+
 
     /* ===== SECTIONS ===== */
     .section { display: none; }
@@ -130,42 +211,42 @@
     /* ===== STOCKS ===== */
     #stock-search-wrap {
       margin: 0.5rem 0 1.5rem 0;
-      border: 1px dashed #1a8a1a;
+      border: 1px dashed var(--dim);
       padding: 1rem;
       background: rgba(0, 20, 0, 0.4);
     }
     #stock-query {
       flex: 1;
-      background: #050505;
-      color: #33ff33;
-      border: 1px solid #33ff33;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--fg);
       padding: 0.4rem 0.6rem;
       font-family: inherit;
       font-size: 0.95rem;
     }
     #btn-stock-search {
       background: transparent;
-      color: #33ff33 !important;
-      border: 1px solid #33ff33;
+      color: var(--fg) !important;
+      border: 1px solid var(--fg);
       padding: 0.4rem 1.2rem;
       font-family: inherit;
       cursor: pointer;
       text-transform: uppercase;
     }
     #btn-stock-search:hover {
-      background: #0a3a0a;
+      background: rgba(0, 255, 0, 0.1);
     }
     #stock-search-results {
       margin-top: 0.75rem;
       max-height: 220px;
       overflow-y: auto;
-      border-top: 1px dashed #1a8a1a;
+      border-top: 1px dashed var(--dim);
       padding-top: 0.5rem;
     }
     .search-result-item {
       background: transparent;
-      border: 1px solid #1a8a1a;
-      color: #33ff33 !important;
+      border: 1px solid var(--dim);
+      color: var(--fg) !important;
       padding: 0.4rem 0.6rem;
       margin: 0.25rem 0;
       width: 100%;
@@ -176,8 +257,30 @@
       display: block;
     }
     .search-result-item:hover {
-      background: #0a3a0a;
-      border-color: #33ff33;
+      background: rgba(0, 255, 0, 0.1);
+      border-color: var(--fg);
+    }
+    #watchlist-wrap {
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--dim);
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    #watchlist-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    #watchlist-row button {
+      background: transparent;
+      color: var(--fg) !important;
+      border: 1px solid var(--dim);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+    }
+    #watchlist-row button:hover {
+      border-color: var(--fg);
     }
     #ticker-row {
       display: flex;
@@ -187,42 +290,42 @@
     }
     #ticker-row button {
       background: transparent;
-      color: #33ff33 !important;
-      border: 1px solid #33ff33;
+      color: var(--fg) !important;
+      border: 1px solid var(--fg);
       padding: 0.3rem 0.7rem;
       font-family: inherit;
       font-size: 0.9rem;
       letter-spacing: 1px;
       cursor: pointer;
     }
-    #ticker-row button:hover { background: #0a3a0a; }
+    #ticker-row button:hover { background: rgba(0, 255, 0, 0.1); }
     #ticker-row button.active {
-      background: #33ff33;
-      color: #050505 !important;
+      background: var(--fg);
+      color: var(--bg) !important;
       text-shadow: none;
     }
     #range-row button {
       background: transparent;
-      color: #1a8a1a !important;
-      border: 1px solid #1a8a1a;
+      color: var(--dim) !important;
+      border: 1px solid var(--dim);
       padding: 0.2rem 0.5rem;
       font-family: inherit;
       font-size: 0.8rem;
       cursor: pointer;
     }
     #range-row button:hover {
-      color: #33ff33 !important;
-      border-color: #33ff33;
+      color: var(--fg) !important;
+      border-color: var(--fg);
     }
     #range-row button.active {
-      background: #33ff33;
-      color: #050505 !important;
-      border-color: #33ff33;
+      background: var(--fg);
+      color: var(--bg) !important;
+      border-color: var(--fg);
       text-shadow: none;
     }
     #stock-chart-wrap {
-      border: 1px solid #33ff33;
-      background: rgba(0, 40, 0, 0.35);
+      border: 1px solid var(--fg);
+      background: rgba(0, 40, 0, 0.1);
       padding: 0.75rem;
       margin-bottom: 1rem;
     }
@@ -233,13 +336,13 @@
       gap: 0.5rem;
     }
     #stock-stats .stat {
-      border: 1px solid #1a8a1a;
+      border: 1px solid var(--dim);
       padding: 0.6rem 0.8rem;
-      background: rgba(0, 30, 0, 0.45);
+      background: rgba(0, 0, 0, 0.4);
     }
-    #stock-stats .stat .k { color: #1a8a1a !important; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
-    #stock-stats .stat .v { color: #33ff33 !important; font-size: 1.15rem; margin-top: 0.2rem; }
-    #stock-stats .stat .v.pos { color: #33ff33 !important; }
+    #stock-stats .stat .k { color: var(--dim) !important; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+    #stock-stats .stat .v { color: var(--fg) !important; font-size: 1.15rem; margin-top: 0.2rem; }
+    #stock-stats .stat .v.pos { color: var(--fg) !important; }
     #stock-stats .stat .v.neg { color: #ff5555 !important; }
     #stock-head {
       display: flex;
@@ -248,11 +351,12 @@
       flex-wrap: wrap;
       margin-bottom: 0.5rem;
     }
-    #stock-head .name  { color: #1a8a1a !important; font-size: 0.85rem; letter-spacing: 1px; }
-    #stock-head .last  { color: #33ff33 !important; font-size: 2rem; }
+    #stock-head .name  { color: var(--dim) !important; font-size: 0.85rem; letter-spacing: 1px; }
+    #stock-head .last  { color: var(--fg) !important; font-size: 2rem; }
     #stock-head .chg   { font-size: 1rem; }
-    #stock-head .chg.pos { color: #33ff33 !important; }
+    #stock-head .chg.pos { color: var(--fg) !important; }
     #stock-head .chg.neg { color: #ff5555 !important; }
+
 
     /* ===== GLOBE ===== */
     #globe-layout {
@@ -264,27 +368,49 @@
       #globe-layout { grid-template-columns: 1fr; }
     }
     #worldmap-wrap {
-      border: 1px solid #33ff33;
-      background: rgba(0, 40, 0, 0.35);
+      border: 1px solid var(--fg);
+      background: rgba(0, 40, 0, 0.1);
       padding: 0.5rem;
     }
     #worldmap { width: 100%; height: auto; display: block; }
     #worldmap path {
-      fill: #0a3a0a;
-      stroke: #33ff33;
+      fill: var(--bg);
+      stroke: var(--fg);
       stroke-width: 0.4;
       cursor: pointer;
       transition: fill 0.1s;
     }
-    #worldmap path.has-feed  { fill: #1a6a1a; }
-    #worldmap path:hover     { fill: #33ff33; }
-    #worldmap path.selected  { fill: #aaffaa; }
+    #worldmap path.has-feed  { fill: var(--dim); }
+    #worldmap path:hover     { fill: var(--fg); }
+    #worldmap path.selected  { fill: var(--hi); }
     #country-news {
       max-height: 75vh;
       overflow-y: auto;
       padding-right: 0.5rem;
     }
-    #country-news .empty { color: #1a8a1a !important; font-style: italic; }
+    #country-news .empty { color: var(--dim) !important; font-style: italic; }
+    #country-weather {
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      border: 1px solid var(--dim);
+      font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    #news-filter-wrap {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    #news-filter {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--fg);
+      color: var(--fg);
+      padding: 0.3rem 0.5rem;
+      font-family: inherit;
+    }
+
   </style>
 </head>
 <body class="terminal">
@@ -296,11 +422,20 @@
       <button data-section="news"   class="active">[ NEWS   ]</button>
       <button data-section="stocks">      [ STOCKS ]</button>
       <button data-section="globe">       [ GLOBE  ]</button>
+      <div id="world-clocks" style="margin-left: auto; display:flex; gap:1rem; font-size:0.7rem; color:var(--dim);"></div>
+      <button id="btn-theme" style="margin-left:1rem;">[ THEME ]</button>
       <span class="badge" id="topnav-badge"></span>
     </nav>
+    <div id="marquee-wrap">
+      <div id="marquee-text">Initializing data stream...</div>
+    </div>
 
     <!-- ============= NEWS ============= -->
     <section id="sec-news" class="section active">
+      <div id="news-filter-wrap">
+        <span class="prompt">$ filter:</span>
+        <input type="text" id="news-filter" placeholder="enter keyword to filter stream..." />
+      </div>
       <p id="status">loading...</p>
       <hr />
       <div id="news-container"></div>
@@ -308,6 +443,10 @@
 
     <!-- ============= STOCKS ============= -->
     <section id="sec-stocks" class="section">
+      <div id="watchlist-wrap">
+        <div style="font-size:0.7rem; color:var(--dim); margin-bottom:0.3rem;">[ PINNED ASSETS ]</div>
+        <div id="watchlist-row"></div>
+      </div>
       <!-- STOCK SEARCH MODULE -->
       <div id="stock-search-wrap">
         <label for="stock-query" style="display:block; margin-bottom:0.5rem; font-weight:bold;">[ SEARCH DIRECTORY: STOCKS / COMMODITIES / BONDS / CRYPTO ]</label>
@@ -317,9 +456,7 @@
         </div>
         <div id="stock-search-results" style="display:none;"></div>
       </div>
-
       <p id="stock-status">loading ticker list...</p>
-
       <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-top: 1rem;">
         <label style="font-weight:bold;">[ TICKER INDEX ]</label>
         <div id="range-row" style="display:flex; gap:0.3rem;">
@@ -332,11 +469,11 @@
         </div>
       </div>
       <div id="ticker-row"></div>
-
       <div id="stock-head" style="display:none">
         <span class="name" id="stock-name"></span>
         <span class="last" id="stock-last"></span>
         <span class="chg"  id="stock-chg"></span>
+        <button id="btn-pin-stock" style="margin-left:auto; font-size:0.7rem;">[ PIN ]</button>
       </div>
       <div id="stock-chart-wrap">
         <canvas id="stock-chart"></canvas>
@@ -352,12 +489,18 @@
           <svg id="worldmap" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
         <div id="country-news">
+          <div id="country-weather"></div>
           <p class="empty">click a country on the map to see its news.</p>
         </div>
       </div>
     </section>
+    <div id="cli-wrap">
+      <span class="prompt">$</span>
+      <input type="text" id="cli-input" placeholder="enter command (goto news | search symbol | theme | clear)..." />
+    </div>
     <div id="footer">made with ❤️ by <a href="https://github.com/protonexe">proton</a></div>
   </div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
@@ -374,8 +517,74 @@
     let mapLoaded      = false;
     let currentSymbol  = "AAPL";
     let currentRange   = "1y";
+    let watchlist      = JSON.parse(localStorage.getItem("proton_watchlist") || '["AAPL", "BTC-USD", "^GSPC"]');
+    let currentTheme   = localStorage.getItem("proton_theme") || "green";
+
+    // ============= THEME =============
+    function applyTheme(theme) {
+      document.body.classList.remove("theme-amber", "theme-blue");
+      if (theme === "amber") document.body.classList.add("theme-amber");
+      if (theme === "blue") document.body.classList.add("theme-blue");
+      localStorage.setItem("proton_theme", theme);
+      currentTheme = theme;
+    }
+
+    // ============= WORLD CLOCKS =============
+    function updateClocks() {
+      const clocks = document.getElementById("world-clocks");
+      const cities = [
+        { name: "NYC", tz: "America/New_York" },
+        { name: "LDN", tz: "Europe/London" },
+        { name: "TKY", tz: "Asia/Tokyo" },
+        { name: "HKG", tz: "Asia/Hong_Kong" },
+      ];
+      clocks.innerHTML = cities.map(c => {
+        const time = new Date().toLocaleTimeString("en-GB", { timeZone: c.tz, hour12: false, hour: "2-digit", minute: "2-digit" });
+        return `<span>${c.name}: ${time}</span>`;
+      }).join("");
+    }
+
+    // ============= MARQUEE =============
+    function updateMarquee() {
+      const marquee = document.getElementById("marquee-text");
+      if (allStories.length) {
+        const topStories = allStories.slice(0, 5).map(s => s.title).join("  //  ");
+        marquee.textContent = `>>> LATEST BROADCAST: ${topStories}  <<<`;
+      }
+    }
+
+    // ============= CLI =============
+    function setupCLI() {
+      const input = document.getElementById("cli-input");
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          const cmd = input.value.toLowerCase().trim();
+          input.value = "";
+          
+          if (cmd === "clear") {
+            document.getElementById("news-container").innerHTML = "";
+          } else if (cmd.startsWith("goto ")) {
+            const sec = cmd.split(" ")[1];
+            const btn = document.querySelector(`#topnav button[data-section="${sec}"]`);
+            if (btn) btn.click();
+          } else if (cmd.startsWith("search ")) {
+            const sym = cmd.split(" ")[1].toUpperCase();
+            currentSymbol = sym;
+            loadStock(sym, currentRange);
+            setSection("stocks");
+          } else if (cmd === "theme") {
+            const themes = ["green", "amber", "blue"];
+            const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+            applyTheme(next);
+          } else {
+            alert("Unknown command. Try: goto news | search AAPL | theme | clear");
+          }
+        }
+      });
+    }
 
     // ============= NAV =============
+
     function setSection(name) {
       document.querySelectorAll("#topnav button").forEach(b => {
         b.classList.toggle("active", b.dataset.section === name);
@@ -443,8 +652,9 @@
       const status = document.getElementById("status");
       const container = document.getElementById("news-container");
       const badge = document.getElementById("topnav-badge");
+      const filter = document.getElementById("news-filter").value.toLowerCase();
+
       try {
-        // 1. Fast load: First 10 items
         const fastRes = await fetch(`${API_URL}?limit=10`);
         if (!fastRes.ok) throw new Error("HTTP " + fastRes.status);
         const initialStories = await fastRes.json();
@@ -453,7 +663,6 @@
         initialStories.forEach((story, i) => container.appendChild(renderStory(story, i)));
         status.textContent = "[" + new Date().toLocaleTimeString() + "] partial signal received... loading full stream";
 
-        // 2. Background load: Full list
         const fullRes = await fetch(API_URL);
         if (!fullRes.ok) throw new Error("HTTP " + fullRes.status);
         const stories = await fullRes.json();
@@ -464,8 +673,14 @@
           stories.length + " headline(s) online.";
         
         container.innerHTML = "";
-        stories.forEach((story, i) => container.appendChild(renderStory(story, i)));
+        const filtered = stories.filter(s => 
+          s.title.toLowerCase().includes(filter) || 
+          s.summary.toLowerCase().includes(filter)
+        );
 
+        filtered.forEach((story, i) => container.appendChild(renderStory(story, i)));
+        
+        updateMarquee();
         const cset = new Set(stories.map(s => s.country).filter(Boolean));
         badge.textContent = cset.size + " country nodes online";
         if (mapLoaded) {
@@ -476,6 +691,9 @@
           "[ERROR] could not reach backend at " + API_URL + " :: " + err.message;
       }
     }
+
+    document.getElementById("news-filter").addEventListener("input", loadNews);
+
 
     // ============= STOCKS =============
     function buildTickerRow() {
@@ -489,6 +707,21 @@
           row.querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
           currentSymbol = sym;
           loadStock(sym, currentRange);
+        });
+        row.appendChild(b);
+      });
+    }
+
+    function updateWatchlist() {
+      const row = document.getElementById("watchlist-row");
+      row.innerHTML = "";
+      watchlist.forEach(sym => {
+        const b = document.createElement("button");
+        b.textContent = sym;
+        b.addEventListener("click", () => {
+          currentSymbol = sym;
+          loadStock(sym, currentRange);
+          setSection("stocks");
         });
         row.appendChild(b);
       });
@@ -508,6 +741,9 @@
         ["Volume",         fmtVol(s.volume)],
         ["52-Week High",   fmtNum(s.fiftyTwoHigh)],
         ["52-Week Low",    fmtNum(s.fiftyTwoLow)],
+        ["P/E Ratio",      s.metrics?.pe || "—"],
+        ["Market Cap",     s.metrics?.marketCap || "—"],
+        ["Div Yield",      s.metrics?.dividend || "—"],
       ];
       stats.innerHTML = "";
       cells.forEach(([k, v]) => {
@@ -526,6 +762,7 @@
       changeCell.appendChild(k1); changeCell.appendChild(v1);
       stats.appendChild(changeCell);
     }
+
 
     function renderStockChart(s) {
       const labels = s.history.map(p => p.date);
@@ -676,12 +913,23 @@
         status.textContent = "ready.";
       }
       buildTickerRow();
+      updateWatchlist();
       setupRangeSelector();
       setupSearch();
+      
+      document.getElementById("btn-pin-stock").addEventListener("click", () => {
+        if (!watchlist.includes(currentSymbol)) {
+          watchlist.push(currentSymbol);
+          localStorage.setItem("proton_watchlist", JSON.stringify(watchlist));
+          updateWatchlist();
+        }
+      });
+
       if (!stockChart) {
         loadStock(currentSymbol, currentRange);
       }
     }
+
 
     // ============= GLOBE =============
     const TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -694,9 +942,35 @@
       });
     }
 
-    function renderCountryNews(countryName) {
+    async function renderCountryNews(countryName) {
       const box = document.getElementById("country-news");
+      const weatherBox = document.getElementById("country-weather");
       box.innerHTML = "";
+      box.appendChild(weatherBox);
+      
+      // Fetch Weather
+      weatherBox.innerHTML = "<p class='prompt'>fetching meteorological data...</p>";
+      try {
+        // 1. Geocode country name to coordinates
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(countryName)}&count=1&language=en&format=json`);
+        if (!geoRes.ok) throw new Error("Geocoding failed");
+        const geoData = await geoRes.json();
+        
+        if (!geoData.results || geoData.results.length === 0) {
+          weatherBox.innerHTML = "<p>meteorological data unavailable for this node.</p>";
+        } else {
+          const { latitude, longitude } = geoData.results[0];
+          // 2. Fetch weather using coordinates
+          const wRes = await fetch(`/weather?lat=${latitude}&lon=${longitude}`);
+          const wData = await wRes.json();
+          weatherBox.innerHTML = wData.temperature 
+            ? `<p>LOCAL CLIMATE: ${wData.temperature}°C // WIND: ${wData.windspeed}km/h</p>` 
+            : `<p>meteorological data unavailable for this node.</p>`;
+        }
+      } catch (e) {
+        weatherBox.innerHTML = "<p>weather uplink failure.</p>";
+      }
+      
       const stories = allStories.filter(s => s.country === countryName);
       const head = document.createElement("fieldset");
       const lg = document.createElement("legend");
@@ -721,6 +995,33 @@
       }
       box.appendChild(head);
     }
+
+
+      const stories = allStories.filter(s => s.country === countryName);
+      const head = document.createElement("fieldset");
+      const lg = document.createElement("legend");
+      lg.textContent = " [ " + countryName.toUpperCase() + " ] // " + stories.length + " headline(s)";
+      head.appendChild(lg);
+      if (!stories.length) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = "no sources from this country.";
+        head.appendChild(p);
+      } else {
+        stories.forEach((s, i) => {
+          const h = document.createElement("h3");
+          h.style.margin = "0.4rem 0 0.3rem 0";
+          h.textContent = s.title;
+          head.appendChild(h);
+          const m = document.createElement("p");
+          m.className = "story-meta";
+          m.textContent = s.category + (s.link ? "  //  " + s.link : "");
+          head.appendChild(m);
+        });
+      }
+      box.appendChild(head);
+    }
+
 
     function buildMap(topology) {
       const svg = d3.select("#worldmap");
@@ -765,7 +1066,19 @@
     }
 
     // ============= BOOT =============
+    applyTheme(currentTheme);
+    updateClocks();
+    setInterval(updateClocks, 1000);
+    setupCLI();
+    
+    document.getElementById("btn-theme").addEventListener("click", () => {
+      const themes = ["green", "amber", "blue"];
+      const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+      applyTheme(next);
+    });
+
     loadNews();
   </script>
+
 </body>
 </html>
