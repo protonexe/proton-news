@@ -653,20 +653,28 @@
       const container = document.getElementById("news-container");
       const badge = document.getElementById("topnav-badge");
       const filter = document.getElementById("news-filter").value.toLowerCase();
+      
+      console.log("[SYS] Initiating news fetch sequence...");
 
       try {
+        console.log("[SYS] Requesting fast-load subset...");
         const fastRes = await fetch(`${API_URL}?limit=10`);
+        console.log("[SYS] Fast-load response status:", fastRes.status);
         if (!fastRes.ok) throw new Error("HTTP " + fastRes.status);
         const initialStories = await fastRes.json();
+        console.log("[SYS] Fast-load data decoded. Items:", initialStories.length);
         
         container.innerHTML = "";
         initialStories.forEach((story, i) => container.appendChild(renderStory(story, i)));
         status.textContent = "[" + new Date().toLocaleTimeString() + "] partial signal received... loading full stream";
 
+        console.log("[SYS] Requesting full data stream...");
         const fullRes = await fetch(API_URL);
+        console.log("[SYS] Full-stream response status:", fullRes.status);
         if (!fullRes.ok) throw new Error("HTTP " + fullRes.status);
         const stories = await fullRes.json();
         allStories = stories;
+        console.log("[SYS] Full stream decoded. Total items:", stories.length);
 
         status.textContent =
           "[" + new Date().toLocaleTimeString() + "] signal fully decoded :: " +
@@ -687,10 +695,12 @@
           highlightMapCountries(cset);
         }
       } catch (err) {
+        console.error("[CRITICAL] News fetch failed:", err);
         status.textContent =
           "[ERROR] could not reach backend at " + API_URL + " :: " + err.message;
       }
     }
+
 
     document.getElementById("news-filter").addEventListener("input", loadNews);
 
