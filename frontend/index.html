@@ -1006,34 +1006,8 @@
       box.appendChild(head);
     }
 
-
-      const stories = allStories.filter(s => s.country === countryName);
-      const head = document.createElement("fieldset");
-      const lg = document.createElement("legend");
-      lg.textContent = " [ " + countryName.toUpperCase() + " ] // " + stories.length + " headline(s)";
-      head.appendChild(lg);
-      if (!stories.length) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent = "no sources from this country.";
-        head.appendChild(p);
-      } else {
-        stories.forEach((s, i) => {
-          const h = document.createElement("h3");
-          h.style.margin = "0.4rem 0 0.3rem 0";
-          h.textContent = s.title;
-          head.appendChild(h);
-          const m = document.createElement("p");
-          m.className = "story-meta";
-          m.textContent = s.category + (s.link ? "  //  " + s.link : "");
-          head.appendChild(m);
-        });
-      }
-      box.appendChild(head);
-    }
-
-
     function buildMap(topology) {
+
       const svg = d3.select("#worldmap");
       svg.selectAll("*").remove();
       const geojson = topojson.feature(topology, topology.objects.countries);
