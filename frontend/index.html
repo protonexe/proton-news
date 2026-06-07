@@ -4,13 +4,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PROTON NEWS // CRT TERMINAL v1.0</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>%3E_</text></svg>" />
   <link rel="stylesheet" href="https://unpkg.com/terminal.css@0.7.4/dist/terminal.min.css" />
   <style>
     :root {
-      --bg: #050505;
-      --fg: #33ff33;
-      --dim: #1a8a1a;
-      --hi:  #aaffaa;
+       --bg: #000000;
+       --fg: #00aa00;
+       --dim: #005500;
+       --hi:  #aaffaa;
+     }
+    /* Debug Console Styles */
+    #debug-console {
+      position: fixed;
+      bottom: 0; right: 0;
+      width: 400px; height: 200px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #ff5555;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border-top: 2px solid #ff5555;
+      z-index: 9999;
+      overflow-y: auto;
+      display: none;
+      pointer-events: none;
     }
     .theme-amber {
       --bg: #1a1000;
@@ -24,20 +41,29 @@
       --dim: #004a8a;
       --hi:  #aaddff;
     }
-    html, body {
-      background: var(--bg) !important;
+    html, body, .terminal {
+      background-color: var(--bg) !important;
       color: var(--fg) !important;
       font-family: "Courier New", ui-monospace, monospace;
       min-height: 100vh;
       margin: 0;
-      transition: background 0.3s, color 0.3s;
+      transition: none !important;
+      box-sizing: border-box;
     }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 1rem;
-      padding-bottom: 4rem;
+
+    .terminal * {
+      color: var(--fg) !important;
+      border-color: var(--fg) !important;
     }
+    *, *:before, *:after {
+      box-sizing: inherit;
+    }
+     .container {
+       max-width: 1100px;
+       margin: 0 auto;
+       padding: 0.5rem 1.5rem 4rem 1.5rem;
+       display: block;
+     }
     body {
       text-shadow: 0 0 4px var(--fg);
     }
@@ -117,6 +143,34 @@
       color: var(--bg) !important;
     }
 
+    /* ===== OVERLAYS ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 10001;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      font-family: inherit;
+    }
+
+    .glitch {
+      animation: glitch 0.2s linear infinite;
+      filter: hue-rotate(90deg);
+    }
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+      100% { transform: translate(0); }
+    }
+
+
 
     /* ===== TOP NAV ===== */
     #topnav {
@@ -124,31 +178,62 @@
       top: 0;
       z-index: 100;
       display: flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 0.5rem;
       padding: 0.6rem 0.5rem;
       margin: 0 0 1rem 0;
-      background: rgba(0, 20, 0, 0.92);
-      border-bottom: 1px solid #33ff33;
+      background: var(--bg) !important;
+      border-bottom: 2px solid var(--fg) !important;
+      white-space: nowrap;
+    }
+    #topnav .nav-group {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    #topnav .clock-group {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.7rem;
+      color: var(--dim);
+      font-family: monospace;
+    }
+    #topnav .status-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-size: 0.6rem;
+      color: var(--dim);
+      line-height: 1;
+      text-align: right;
     }
     #topnav button {
-      background: transparent;
+      background: transparent !important;
       color: var(--fg) !important;
-      border: 1px solid var(--fg);
-      padding: 0.35rem 0.9rem;
+      border: 1px solid var(--fg) !important;
+      padding: 0.35rem 0.6rem;
       font-family: inherit;
-      font-size: 0.95rem;
-      letter-spacing: 2px;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
       cursor: pointer;
       text-transform: uppercase;
+      box-shadow: none !important;
+      white-space: nowrap !important;
+      flex: 0 1 auto;
     }
+
+
     #topnav button:hover {
-      background: rgba(0, 255, 0, 0.1);
+      background: rgba(51, 255, 51, 0.1) !important;
     }
     #topnav button.active {
-      background: var(--fg);
+      background: var(--fg) !important;
       color: var(--bg) !important;
-      text-shadow: none;
+      text-shadow: none !important;
+      border-color: var(--fg) !important;
     }
+
     #topnav .badge {
       margin-left: auto;
       align-self: center;
@@ -161,15 +246,19 @@
       color: var(--bg) !important;
       overflow: hidden;
       white-space: nowrap;
-      padding: 2px 0;
-      font-size: 0.85rem;
+      padding: 8px 0;
+      font-size: 1.1rem;
       font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-top: 1px solid var(--fg);
       border-bottom: 1px solid var(--fg);
+      text-shadow: none;
     }
     #marquee-text {
       display: inline-block;
       padding-left: 100%;
-      animation: marquee 30s linear infinite;
+      animation: marquee 40s linear infinite;
     }
     @keyframes marquee {
       0% { transform: translate(0, 0); }
@@ -260,28 +349,6 @@
       background: rgba(0, 255, 0, 0.1);
       border-color: var(--fg);
     }
-    #watchlist-wrap {
-      margin-bottom: 1.5rem;
-      border: 1px solid var(--dim);
-      padding: 0.5rem;
-      background: rgba(0, 0, 0, 0.5);
-    }
-    #watchlist-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    #watchlist-row button {
-      background: transparent;
-      color: var(--fg) !important;
-      border: 1px solid var(--dim);
-      font-size: 0.8rem;
-      cursor: pointer;
-      padding: 0.2rem 0.5rem;
-    }
-    #watchlist-row button:hover {
-      border-color: var(--fg);
-    }
     #ticker-row {
       display: flex;
       flex-wrap: wrap;
@@ -358,35 +425,41 @@
     #stock-head .chg.neg { color: #ff5555 !important; }
 
 
-    /* ===== GLOBE ===== */
-    #globe-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-      gap: 1rem;
+    /* ===== WORLD MAP ===== */
+    #world-layout {
+      display: flex;
+      height: 620px;
+      border: 2px solid var(--fg);
+      background: var(--bg);
+      overflow: hidden;
     }
-    @media (max-width: 800px) {
-      #globe-layout { grid-template-columns: 1fr; }
+    #worldViz {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
     }
-    #worldmap-wrap {
-      border: 1px solid var(--fg);
-      background: rgba(0, 40, 0, 0.1);
-      padding: 0.5rem;
+    #worldViz svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
-    #worldmap { width: 100%; height: auto; display: block; }
-    #worldmap path {
-      fill: var(--bg);
-      stroke: var(--fg);
-      stroke-width: 0.4;
+    #worldViz path {
       cursor: pointer;
       transition: fill 0.1s;
     }
-    #worldmap path.has-feed  { fill: var(--dim); }
-    #worldmap path:hover     { fill: var(--fg); }
-    #worldmap path.selected  { fill: var(--hi); }
+    @media (max-width: 800px) {
+      #world-layout { flex-direction: column; height: auto; }
+      #country-news { width: 100% !important; max-height: 50vh; }
+    }
     #country-news {
-      max-height: 75vh;
+      width: 320px;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.6);
+      border-left: 2px solid var(--fg);
+      padding: 1rem;
       overflow-y: auto;
-      padding-right: 0.5rem;
+      font-size: 0.85rem;
     }
     #country-news .empty { color: var(--dim) !important; font-style: italic; }
     #country-weather {
@@ -414,25 +487,52 @@
   </style>
 </head>
 <body class="terminal">
+  <div id="debug-console"></div>
   <div class="container">
     <h1>&gt; PROTON-NEWS_v1.0</h1>
     <p class="prompt">$ ./fetch_headlines --live --source=127.0.0.1:8000</p>
 
-    <nav id="topnav">
-      <button data-section="news"   class="active">[ NEWS   ]</button>
-      <button data-section="stocks">      [ STOCKS ]</button>
-      <button data-section="globe">       [ GLOBE  ]</button>
-      <div id="world-clocks" style="margin-left: auto; display:flex; gap:1rem; font-size:0.7rem; color:var(--dim);"></div>
-      <button id="btn-theme" style="margin-left:1rem;">[ THEME ]</button>
-      <span class="badge" id="topnav-badge"></span>
-    </nav>
+      <nav id="topnav">
+        <div class="nav-group">
+          <button data-section="news"   class="active">[ NEWS    ]</button>
+          <button data-section="finance">[ FINANCE ]</button>
+          <button data-section="weather">[ WEATHER ]</button>
+          <button data-section="sports">  [ SPORTS  ]</button>
+          <button data-section="world">   [ WORLD   ]</button>
+          <button data-section="planes">  [ PLANES  ]</button>
+        </div>
+        <div class="nav-group">
+          <button id="btn-theme">[ THEME ]</button>
+          <button id="btn-audio">[ AUDIO: OFF ]</button>
+        </div>
+        <div class="status-group" id="system-status">
+          <span>country</span>
+          <span>nodes</span>
+          <span>online</span>
+        </div>
+        <span class="badge" id="topnav-badge"></span>
+      </nav>
+
     <div id="marquee-wrap">
       <div id="marquee-text">Initializing data stream...</div>
     </div>
 
-    <!-- ============= NEWS ============= -->
-    <section id="sec-news" class="section active">
-      <div id="news-filter-wrap">
+     <!-- ============= NEWS ============= -->
+     <section id="sec-news" class="section active">
+       <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+         <div style="display:flex; gap:0.3rem; align-items:center;">
+           <span class="prompt" style="font-size:0.8rem;">SECTOR:</span>
+           <button data-filter-type="sector" data-filter-val="ALL" class="filter-btn active" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">ALL</button>
+           <button data-filter-type="sector" data-filter-val="TECH" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">TECH</button>
+           <button data-filter-type="sector" data-filter-val="FINANCE" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">FIN</button>
+           <button data-filter-type="sector" data-filter-val="ENERGY" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">ENG</button>
+           <button data-filter-type="sector" data-filter-val="HEALTH" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">HEA</button>
+           <button data-filter-type="sector" data-filter-val="POLITICS" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">POL</button>
+           <button data-filter-type="sector" data-filter-val="GENERAL" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">GEN</button>
+         </div>
+       </div>
+       <div id="news-filter-wrap">
+
         <span class="prompt">$ filter:</span>
         <input type="text" id="news-filter" placeholder="enter keyword to filter stream..." />
       </div>
@@ -441,60 +541,117 @@
       <div id="news-container"></div>
     </section>
 
-    <!-- ============= STOCKS ============= -->
-    <section id="sec-stocks" class="section">
-      <div id="watchlist-wrap">
-        <div style="font-size:0.7rem; color:var(--dim); margin-bottom:0.3rem;">[ PINNED ASSETS ]</div>
-        <div id="watchlist-row"></div>
-      </div>
-      <!-- STOCK SEARCH MODULE -->
-      <div id="stock-search-wrap">
-        <label for="stock-query" style="display:block; margin-bottom:0.5rem; font-weight:bold;">[ SEARCH DIRECTORY: STOCKS / COMMODITIES / BONDS / CRYPTO ]</label>
-        <div style="display:flex; gap:0.5rem;">
-          <input type="text" id="stock-query" placeholder="e.g. AAPL, Gold, Crude Oil, 10-year, BTC-USD..." />
-          <button id="btn-stock-search">[ SEARCH ]</button>
+      <!-- ============= FINANCE ============= -->
+      <section id="sec-finance" class="section">
+        <div id="finance-tabs" style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <button data-fin-tab="stocks" class="filter-btn active" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">[ STOCKS ]</button>
+          <button data-fin-tab="other" class="filter-btn" style="background:transparent; color:var(--fg); border:1px solid var(--fg); font-family:inherit; font-size:0.7rem; cursor:pointer;">[ OTHER FINANCE ]</button>
         </div>
-        <div id="stock-search-results" style="display:none;"></div>
-      </div>
-      <p id="stock-status">loading ticker list...</p>
-      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-top: 1rem;">
-        <label style="font-weight:bold;">[ TICKER INDEX ]</label>
-        <div id="range-row" style="display:flex; gap:0.3rem;">
-          <button data-range="1d">[ 1D ]</button>
-          <button data-range="5d">[ 5D ]</button>
-          <button data-range="1mo">[ 1M ]</button>
-          <button data-range="3mo">[ 3M ]</button>
-          <button data-range="1y" class="active">[ 1Y ]</button>
-          <button data-range="max">[ ALL ]</button>
-        </div>
-      </div>
-      <div id="ticker-row"></div>
-      <div id="stock-head" style="display:none">
-        <span class="name" id="stock-name"></span>
-        <span class="last" id="stock-last"></span>
-        <span class="chg"  id="stock-chg"></span>
-        <button id="btn-pin-stock" style="margin-left:auto; font-size:0.7rem;">[ PIN ]</button>
-      </div>
-      <div id="stock-chart-wrap">
-        <canvas id="stock-chart"></canvas>
-      </div>
-      <div id="stock-stats"></div>
-    </section>
 
-    <!-- ============= GLOBE ============= -->
-    <section id="sec-globe" class="section">
-      <p id="globe-status">loading map...</p>
-      <div id="globe-layout">
-        <div id="worldmap-wrap">
-          <svg id="worldmap" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="fin-tab-stocks" class="fin-tab-content">
+          <div id="finance-detail" style="border-top: 2px solid var(--fg); padding-top: 1.5rem;">
+            <label style="font-weight:bold; letter-spacing: 2px; display:block; margin-bottom:1rem;">[ ASSET ANALYSIS ]</label>
+            <div id="stock-search-wrap">
+              <label for="stock-query" style="display:block; margin-bottom:0.5rem; font-weight:bold;">[ SEARCH DIRECTORY: STOCKS / COMMODITIES / BONDS / CRYPTO ]</label>
+              <div style="display:flex; gap:0.5rem;">
+                <input type="text" id="stock-query" placeholder="e.g. AAPL, Gold, Crude Oil, 10-year, BTC-USD..." />
+                <button id="btn-stock-search">[ SEARCH ]</button>
+              </div>
+              <div id="stock-search-results" style="display:none;"></div>
+            </div>
+            <p id="stock-status">ready.</p>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-top: 1rem;">
+              <label style="font-weight:bold;">[ TICKER INDEX ]</label>
+              <div id="range-row" style="display:flex; gap:0.3rem;">
+                <button data-range="1d">[ 1D ]</button>
+                <button data-range="5d">[ 5D ]</button>
+                <button data-range="1mo">[ 1M ]</button>
+                <button data-range="3mo">[ 3M ]</button>
+                <button data-range="1y" class="active">[ 1Y ]</button>
+                <button data-range="max">[ ALL ]</button>
+              </div>
+            </div>
+            <div id="ticker-row"></div>
+            <div id="stock-head" style="display:none; margin-top: 1rem; padding: 0.5rem; border: 1px solid var(--fg); background: rgba(0,255,0,0.05);">
+              <span class="name" id="stock-name" style="font-weight:bold; font-size:1.2rem;"></span>
+              <span class="last" id="stock-last" style="margin-left:1rem;"></span>
+              <span class="chg"  id="stock-chg" style="margin-left:1rem;"></span>
+            </div>
+            <div id="stock-chart-wrap" style="margin-top:1rem; height: 300px;">
+              <canvas id="stock-chart"></canvas>
+            </div>
+            <div id="stock-stats" style="margin-top:1rem;"></div>
+          </div>
         </div>
-        <div id="country-news">
-          <div id="country-weather"></div>
-          <p class="empty">click a country on the map to see its news.</p>
+
+        <div id="fin-tab-other" class="fin-tab-content" style="display:none;">
+          <div id="finance-overview" style="margin-bottom: 2rem;">
+            <label style="font-weight:bold; letter-spacing: 2px; display:block; margin-bottom:1rem;">[ MARKET OVERVIEW ]</label>
+            <div id="market-indicators" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+              <p style="color:var(--dim)">synchronizing market data...</p>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
-    <div id="cli-wrap">
+      </section>
+
+     <!-- ============= WEATHER ============= -->
+     <section id="sec-weather" class="section">
+       <div style="display:flex; gap:0.5rem; margin-bottom: 1rem;">
+         <input type="text" id="weather-city-input" placeholder="Enter city for weather + AQI..." style="flex:1; background:transparent; border:1px solid var(--fg); color:var(--fg); font-family:inherit; padding: 0.4rem 0.6rem;" />
+         <button id="btn-weather-fetch" style="background:transparent; color:var(--fg); border:1px solid var(--fg); cursor:pointer; font-family:inherit; padding: 0.4rem 1rem;">[ SCAN ATMOSPHERE ]</button>
+       </div>
+       <div id="weather-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+         <fieldset>
+           <legend>CURRENT CONDITIONS</legend>
+           <div id="weather-current" style="font-size: 1.5rem; font-weight: bold;">--</div>
+           <div id="weather-details" style="font-size: 0.8rem; color: var(--dim); margin-top: 0.5rem;">awaiting input...</div>
+         </fieldset>
+         <fieldset>
+           <legend>AIR QUALITY (US AQI)</legend>
+           <div id="aqi-value" style="font-size: 1.5rem; font-weight: bold;">--</div>
+           <div id="aqi-pollutants" style="font-size: 0.8rem; color: var(--dim); margin-top: 0.5rem;">awaiting input...</div>
+         </fieldset>
+         <fieldset>
+           <legend>FORECAST (3 DAY)</legend>
+           <div id="weather-forecast" style="font-size: 0.8rem; margin-top: 0.5rem;">awaiting input...</div>
+         </fieldset>
+         <fieldset>
+           <legend>UV INDEX PEAK</legend>
+           <div id="uv-index" style="font-size: 1.5rem; font-weight: bold;">--</div>
+         </fieldset>
+       </div>
+     </section>
+
+     <!-- ============= SPORTS ============= -->
+     <section id="sec-sports" class="section">
+       <p class="prompt">$ fetch scoreboard --all</p>
+       <div id="sports-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.5rem; margin-top:1rem;">syncing scoreboard...</div>
+     </section>
+
+     <!-- ============= PLANES ============= -->
+     <section id="sec-planes" class="section">
+       <p class="prompt">$ opensky_network --query --limit=200</p>
+       <div id="planes-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem; margin-top:1rem;">syncing live flights...</div>
+     </section>
+
+     <!-- ============= WORLD ============= -->
+      <section id="sec-world" class="section">
+        <div id="world-layout">
+          <div id="worldViz"></div>
+          <div id="country-news">
+            <div id="country-weather"></div>
+            <p class="empty">click a country on the map to see its news.</p>
+          </div>
+        </div>
+        <div id="global-alerts" style="margin-top: 1rem; border: 1px solid var(--fg); padding: 0.5rem; background: rgba(0, 40, 0, 0.1);">
+          <label style="font-weight: bold; letter-spacing: 2px;">[ GLOBAL SEISMIC ALERTS // USGS ]</label>
+          <div id="alerts-list" style="margin-top: 0.5rem; font-size: 0.85rem;">synchronizing seismic data...</div>
+        </div>
+      </section>
+ 
+     <div id="cli-wrap">
+
+
       <span class="prompt">$</span>
       <input type="text" id="cli-input" placeholder="enter command (goto news | search symbol | theme | clear)..." />
     </div>
@@ -502,36 +659,133 @@
   </div>
 
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
-  <script>
-    "use strict";
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+    <script src="globe-data.js"></script>
+   <script>
+     "use strict";
+
+     // ============= DEBUG LOGGING =============
+     const debugConsole = document.getElementById('debug-console');
+     function logDebug(msg, isError = false) {
+       if (!debugConsole) return;
+       const div = document.createElement('div');
+       div.style.color = isError ? '#ff5555' : '#33ff33';
+       div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+       debugConsole.appendChild(div);
+       debugConsole.scrollTop = debugConsole.scrollHeight;
+       console.log(msg);
+     }
+
+     window.onerror = function(msg, url, line, col, error) {
+       debugConsole.style.display = 'block';
+       logDebug(`FATAL ERROR: ${msg} at line ${line}:${col}`, true);
+       if (error) console.error(error);
+       return false;
+     };
+
+     window.onunhandledrejection = function(event) {
+       debugConsole.style.display = 'block';
+       logDebug(`UNHANDLED PROMISE: ${event.reason}`, true);
+     };
+
+     // Show debug console if pressed Ctrl+D
+     window.addEventListener('keydown', e => {
+       if (e.ctrlKey && e.key === 'd') {
+         debugConsole.style.display = debugConsole.style.display === 'none' ? 'block' : 'none';
+       }
+     });
 
     const API_URL  = "/news";
     const TICKERS  = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "^GSPC", "^DJI", "^IXIC"];
+
+    const safeStorage = {
+      get(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+      },
+      set(key, val) {
+        try { localStorage.setItem(key, val); } catch (e) { /* Tracking Prevention / disabled storage */ }
+      }
+    };
+
+    function loadStory(link) {
+      const story = allStories.find(s => s.link === link);
+      if (!story) {
+        alert("Story not found in current uplink.");
+        return;
+      }
+      setSection("news");
+      const container = document.getElementById("news-container");
+      container.innerHTML = `
+        <div class="story-detail" style="border: 2px solid var(--fg); padding: 1rem; background: rgba(0,0,0,0.5);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <label style="font-weight:bold; color:var(--fg);">[ SOURCE: ${story.category} ]</label>
+            <button onclick="document.getElementById('news-container').innerHTML = ''; loadNews();" style="background:transparent; color:var(--fg); border:1px solid var(--fg); cursor:pointer; font-family:inherit; font-size:0.7rem;">[ BACK TO STREAM ]</button>
+          </div>
+          <h2 style="margin: 0 0 1rem 0; color:var(--fg); font-family:inherit;">${story.title}</h2>
+          <p style="line-height:1.6; margin-bottom:1.5rem; color:var(--fg);">${story.summary || "No detailed summary available in the uplink."}</p>
+          <a href="${story.link}" target="_blank" style="color:var(--hi); text-decoration:underline; font-family:inherit; font-size:0.9rem;">>> OPEN SOURCE TERMINAL</a>
+        </div>
+      `;
+    }
 
     // ============= STATE =============
     let allStories     = [];
     let stockChart     = null;
     let mapLoaded      = false;
-    let currentSymbol  = "AAPL";
-    let currentRange   = "1y";
-    let watchlist      = JSON.parse(localStorage.getItem("proton_watchlist") || '["AAPL", "BTC-USD", "^GSPC"]');
-    let currentTheme   = localStorage.getItem("proton_theme") || "green";
+     let currentSymbol  = "AAPL";
+     let currentRange   = "1y";
+     let currentSectorFilter = "ALL";
+     let currentTheme   = safeStorage.get("proton_theme") || "green";
+
+    let audioEnabled   = false;
+
+    // ============= AUDIO ENGINE =============
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type = "square", duration = 0.1, vol = 0.1) {
+      if (!audioEnabled) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playClick() { playTone(800, "square", 0.05, 0.05); }
+    function playError() { playTone(150, "sawtooth", 0.3, 0.1); }
+    function playSuccess() { playTone(1200, "sine", 0.2, 0.1); }
 
     // ============= THEME =============
+
     function applyTheme(theme) {
-      document.body.classList.remove("theme-amber", "theme-blue");
+      document.body.classList.remove("theme-amber", "theme-blue", "theme-red", "theme-purple", "theme-white");
       if (theme === "amber") document.body.classList.add("theme-amber");
       if (theme === "blue") document.body.classList.add("theme-blue");
-      localStorage.setItem("proton_theme", theme);
+      safeStorage.set("proton_theme", theme);
       currentTheme = theme;
     }
 
     // ============= WORLD CLOCKS =============
+    function updateSystemStatus() {
+      const statusEl = document.getElementById("system-status");
+      if (!statusEl) return;
+      const nodes = Math.floor(Math.random() * 50) + 10;
+      statusEl.innerHTML = `
+        <span>country</span>
+        <span>nodes</span>
+        <span>online: ${nodes}</span>
+      `;
+    }
+
     function updateClocks() {
       const clocks = document.getElementById("world-clocks");
+      if (!clocks) return;
       const cities = [
         { name: "NYC", tz: "America/New_York" },
         { name: "LDN", tz: "Europe/London" },
@@ -547,19 +801,22 @@
     // ============= MARQUEE =============
     function updateMarquee() {
       const marquee = document.getElementById("marquee-text");
+      if (!marquee) return;
       if (allStories.length) {
         const topStories = allStories.slice(0, 5).map(s => s.title).join("  //  ");
         marquee.textContent = `>>> LATEST BROADCAST: ${topStories}  <<<`;
       }
     }
 
-    // ============= CLI =============
+     // ============= CLI =============
     function setupCLI() {
+
       const input = document.getElementById("cli-input");
       input.addEventListener("keydown", e => {
         if (e.key === "Enter") {
           const cmd = input.value.toLowerCase().trim();
           input.value = "";
+          playClick();
           
           if (cmd === "clear") {
             document.getElementById("news-container").innerHTML = "";
@@ -571,17 +828,47 @@
             const sym = cmd.split(" ")[1].toUpperCase();
             currentSymbol = sym;
             loadStock(sym, currentRange);
-            setSection("stocks");
+            setSection("finance");
           } else if (cmd === "theme") {
             const themes = ["green", "amber", "blue"];
             const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
             applyTheme(next);
+          } else if (cmd === "crypto") {
+            fetchCryptoStatus();
+          } else if (cmd.startsWith("addfeed ")) {
+            const url = cmd.split(" ")[1];
+            let custom = JSON.parse(safeStorage.get("proton_custom_feeds") || "[]");
+            if (!custom.includes(url)) {
+              custom.push(url);
+              safeStorage.set("proton_custom_feeds", JSON.stringify(custom));
+              alert("Feed added to uplink. Reloading stream...");
+              loadNews();
+            } else {
+              alert("Feed already present in uplink.");
+            }
+          } else if (cmd === "about") {
+            alert("PROTON NEWS v1.0\nExperimental Branch\nSecure Financial & News Uplink\nDeveloped by proton");
+          } else if (cmd === "help") {
+            alert("AVAILABLE COMMANDS:\n- goto [news|stocks|world]\n- search [symbol]\n- theme\n- crypto\n- addfeed [url]\n- clear\n- about\n- help");
           } else {
-            alert("Unknown command. Try: goto news | search AAPL | theme | clear");
+            playError();
+            alert("Unknown command. Type 'help' for list.");
           }
         }
       });
     }
+
+    async function fetchCryptoStatus() {
+      try {
+        const res = await fetch("/crypto/status");
+        const data = await res.json();
+        alert(`CRYPTO NODE STATUS:\nGas Price: ${data.gas_price} gwei\nTrending: ${data.trending.join(", ")}`);
+      } catch (e) {
+        alert("Crypto uplink failure.");
+      }
+    }
+
+
 
     // ============= NAV =============
 
@@ -592,10 +879,16 @@
       document.querySelectorAll(".section").forEach(s => {
         s.classList.toggle("active", s.id === "sec-" + name);
       });
-      if (name === "stocks") {
-        initStocks();
-      } else if (name === "globe") {
-        initGlobe();
+      if (name === "finance") {
+        initFinance();
+      } else if (name === "world") {
+        initWorld();
+      } else if (name === "weather") {
+        initWeather();
+      } else if (name === "sports") {
+        initSports();
+      } else if (name === "planes") {
+        initPlanes();
       }
     }
     document.querySelectorAll("#topnav button").forEach(b => {
@@ -618,15 +911,32 @@
       return Math.round(Number(n)).toLocaleString();
     }
 
-    // ============= NEWS =============
+    function setupNewsFilters() {
+      document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const type = btn.dataset.filterType;
+          const val = btn.dataset.filterVal;
+
+          document.querySelectorAll(`.filter-btn[data-filter-type="${type}"]`).forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+
+          if (type === "sector") currentSectorFilter = val;
+
+          loadNews();
+        });
+      });
+    }
+
     function renderStory(story, index) {
       const fs = document.createElement("fieldset");
       const lg = document.createElement("legend");
       const country = story.country ? "  //  " + story.country : "";
+      const sector = story.sector ? `  //  ${story.sector}` : "";
       lg.textContent =
         " [ " + String(story.category || "UNKNOWN").toUpperCase() +
-        " ] // entry " + pad2(index + 1) + country;
+        " ] // entry " + pad2(index + 1) + country + sector;
       fs.appendChild(lg);
+
 
       const h = document.createElement("h3");
       h.className = "story-title";
@@ -657,8 +967,11 @@
       console.log("[SYS] Initiating news fetch sequence...");
 
       try {
+        const customFeeds = JSON.parse(safeStorage.get("proton_custom_feeds") || "[]");
+        const customQuery = customFeeds.length ? `&custom_feeds=${encodeURIComponent(customFeeds.join(","))}` : "";
+
         console.log("[SYS] Requesting fast-load subset...");
-        const fastRes = await fetch(`${API_URL}?limit=10`);
+        const fastRes = await fetch(`${API_URL}?limit=10${customQuery}`);
         console.log("[SYS] Fast-load response status:", fastRes.status);
         if (!fastRes.ok) throw new Error("HTTP " + fastRes.status);
         const initialStories = await fastRes.json();
@@ -669,7 +982,7 @@
         status.textContent = "[" + new Date().toLocaleTimeString() + "] partial signal received... loading full stream";
 
         console.log("[SYS] Requesting full data stream...");
-        const fullRes = await fetch(API_URL);
+        const fullRes = await fetch(`${API_URL}${customQuery}`);
         console.log("[SYS] Full-stream response status:", fullRes.status);
         if (!fullRes.ok) throw new Error("HTTP " + fullRes.status);
         const stories = await fullRes.json();
@@ -681,10 +994,12 @@
           stories.length + " headline(s) online.";
         
         container.innerHTML = "";
-        const filtered = stories.filter(s => 
-          s.title.toLowerCase().includes(filter) || 
-          s.summary.toLowerCase().includes(filter)
-        );
+        const filtered = stories.filter(s => {
+          const matchesText = s.title.toLowerCase().includes(filter) || 
+                              s.summary.toLowerCase().includes(filter);
+          const matchesSector = currentSectorFilter === "ALL" || s.sector === currentSectorFilter;
+          return matchesText && matchesSector;
+        });
 
         filtered.forEach((story, i) => container.appendChild(renderStory(story, i)));
         
@@ -717,21 +1032,6 @@
           row.querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
           currentSymbol = sym;
           loadStock(sym, currentRange);
-        });
-        row.appendChild(b);
-      });
-    }
-
-    function updateWatchlist() {
-      const row = document.getElementById("watchlist-row");
-      row.innerHTML = "";
-      watchlist.forEach(sym => {
-        const b = document.createElement("button");
-        b.textContent = sym;
-        b.addEventListener("click", () => {
-          currentSymbol = sym;
-          loadStock(sym, currentRange);
-          setSection("stocks");
         });
         row.appendChild(b);
       });
@@ -859,6 +1159,12 @@
         renderStockChart(s);
         renderStockStats(s);
         status.textContent = "[" + new Date().toLocaleTimeString() + "] " + sym + " (" + range.toUpperCase() + ") decoded.";
+        
+        // Trigger glitch on high volatility (random for now to simulate)
+        if (Math.abs(s.changePct) > 2.0) {
+          document.body.classList.add("glitch");
+          setTimeout(() => document.body.classList.remove("glitch"), 500);
+        }
       } catch (err) {
         status.textContent = "[ERROR] " + sym + " :: " + err.message;
       }
@@ -917,152 +1223,402 @@
       });
     }
 
-    function initStocks() {
+    function initFinance() {
       const status = document.getElementById("stock-status");
-      if (status.textContent.startsWith("loading ticker")) {
+      if (status && status.textContent.startsWith("loading ticker")) {
         status.textContent = "ready.";
       }
-      buildTickerRow();
-      updateWatchlist();
-      setupRangeSelector();
-      setupSearch();
       
-      document.getElementById("btn-pin-stock").addEventListener("click", () => {
-        if (!watchlist.includes(currentSymbol)) {
-          watchlist.push(currentSymbol);
-          localStorage.setItem("proton_watchlist", JSON.stringify(watchlist));
-          updateWatchlist();
-        }
+      // Tab switching logic
+      document.querySelectorAll("#finance-tabs button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tab = btn.dataset.finTab;
+          document.querySelectorAll("#finance-tabs button").forEach(b => b.classList.toggle("active", b === btn));
+          document.querySelectorAll(".fin-tab-content").forEach(c => {
+            c.style.display = c.id === `fin-tab-${tab}` ? "block" : "none";
+          });
+        });
       });
+
+      if (!document.getElementById("btn-stock-search").onclick) {
+        buildTickerRow();
+        setupRangeSelector();
+        setupSearch();
+      }
+
+      const marketEl = document.getElementById("market-indicators");
+      if (marketEl && marketEl.innerHTML === "synchronizing market data...") {
+        loadMarketIndicators();
+      }
 
       if (!stockChart) {
         loadStock(currentSymbol, currentRange);
       }
     }
 
-
-    // ============= GLOBE =============
-    const TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-
-    function highlightMapCountries(cset) {
-      const svg = document.getElementById("worldmap");
-      svg.querySelectorAll("path").forEach(p => {
-        const n = p.__name;
-        p.classList.toggle("has-feed", cset.has(n));
-      });
+    function drawSparkline(data, color) {
+      if (!data || data.length < 2) return "";
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const range = max - min || 1;
+      const width = 100;
+      const height = 30;
+      const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((val - min) / range) * height;
+        return `${x},${y}`;
+      }).join(" ");
+      return `<svg width="${width}" height="${height}" style="overflow:visible">
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
+      </svg>`;
     }
 
-    async function renderCountryNews(countryName) {
-      const box = document.getElementById("country-news");
-      const weatherBox = document.getElementById("country-weather");
-      box.innerHTML = "";
-      box.appendChild(weatherBox);
-      
-      // Fetch Weather
-      weatherBox.innerHTML = "<p class='prompt'>fetching meteorological data...</p>";
+    async function loadMarketIndicators() {
+      const marketEl = document.getElementById("market-indicators");
+      marketEl.innerHTML = "synchronizing market data...";
       try {
-        // 1. Geocode country name to coordinates
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(countryName)}&count=1&language=en&format=json`);
-        if (!geoRes.ok) throw new Error("Geocoding failed");
-        const geoData = await geoRes.json();
-        
-        if (!geoData.results || geoData.results.length === 0) {
-          weatherBox.innerHTML = "<p>meteorological data unavailable for this node.</p>";
-        } else {
-          const { latitude, longitude } = geoData.results[0];
-          // 2. Fetch weather using coordinates
-          const wRes = await fetch(`/weather?lat=${latitude}&lon=${longitude}`);
-          const wData = await wRes.json();
-          weatherBox.innerHTML = wData.temperature 
-            ? `<p>LOCAL CLIMATE: ${wData.temperature}°C // WIND: ${wData.windspeed}km/h</p>` 
-            : `<p>meteorological data unavailable for this node.</p>`;
+        const res = await fetch("/finance/indicators");
+        const data = await res.json();
+        let html = "";
+        for (const category of ["COMMODITIES", "CRYPTO", "CURRENCIES", "BONDS"]) {
+          if (data[category] && data[category].length) {
+            html += `<div style="grid-column: 1/-1; margin-top:1rem; margin-bottom:0.5rem; color:var(--dim); font-size:0.7rem; text-transform:uppercase; letter-spacing:1px;">// ${category}</div>`;
+            data[category].forEach(t => {
+              const color = t.changePct >= 0 ? "var(--fg)" : "#ff5555";
+              const sign = t.changePct >= 0 ? "+" : "";
+              const sparkline = drawSparkline(t.history, color);
+              html += `
+                <div class="stat" style="border: 1px solid var(--dim); padding: 0.8rem; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 0.4rem;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="k" style="font-size:0.8rem; opacity:0.8;">${t.symbol}</div>
+                    <div style="font-size:0.7rem; color:var(--dim)">${t.name}</div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <div class="v" style="font-size:1.2rem; font-weight:bold;">${fmtNum(t.last, 2)}</div>
+                    <div style="font-size:0.8rem; color: ${color} !important; font-weight:bold;">${sign}${fmtPct(t.changePct)}</div>
+                  </div>
+                  <div style="height:30px; display:flex; align-items:center; justify-content:center; margin-top:0.3rem;">
+                    ${sparkline}
+                  </div>
+                </div>`;
+            });
+          }
         }
-      } catch (e) {
-        weatherBox.innerHTML = "<p>weather uplink failure.</p>";
+        marketEl.innerHTML = html;
+      } catch (err) {
+        marketEl.innerHTML = `<p class='empty'>[ERROR] :: ${err.message}</p>`;
       }
-      
-      const stories = allStories.filter(s => s.country === countryName);
-      const head = document.createElement("fieldset");
-      const lg = document.createElement("legend");
-      lg.textContent = " [ " + countryName.toUpperCase() + " ] // " + stories.length + " headline(s)";
-      head.appendChild(lg);
-      if (!stories.length) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent = "no sources from this country.";
-        head.appendChild(p);
-      } else {
-        stories.forEach((s, i) => {
-          const h = document.createElement("h3");
-          h.style.margin = "0.4rem 0 0.3rem 0";
-          h.textContent = s.title;
-          head.appendChild(h);
-          const m = document.createElement("p");
-          m.className = "story-meta";
-          m.textContent = s.category + (s.link ? "  //  " + s.link : "");
-          head.appendChild(m);
-        });
-      }
-      box.appendChild(head);
     }
 
-    function buildMap(topology) {
 
-      const svg = d3.select("#worldmap");
-      svg.selectAll("*").remove();
-      const geojson = topojson.feature(topology, topology.objects.countries);
-      const features = geojson.features;
-      const projection = d3.geoNaturalEarth1().fitSize([800, 500], geojson);
-      const path = d3.geoPath(projection);
-      const cset = new Set(allStories.map(s => s.country).filter(Boolean));
+    let weatherInitialized = false;
+    function initWeather() {
+      if (weatherInitialized) return;
+      weatherInitialized = true;
+      const btn = document.getElementById("btn-weather-fetch");
+      btn.addEventListener("click", fetchWeather);
+      // Fetch a default location on load
+      fetchWeather();
+    }
+
+    async function fetchWeather() {
+      const city = document.getElementById("weather-city-input").value.trim();
+      const currentEl = document.getElementById("weather-current");
+      const detailsEl = document.getElementById("weather-details");
+      const aqiEl = document.getElementById("aqi-value");
+      const aqiDetails = document.getElementById("aqi-pollutants");
+      const forecastEl = document.getElementById("weather-forecast");
+      const uvEl = document.getElementById("uv-index");
+      
+      currentEl.textContent = "...";
+      
+      try {
+        let lat, lon, name = city;
+        if (city) {
+          // Geocode city first
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+          const geoData = await geoRes.json();
+          if (!geoData.results || geoData.results.length === 0) {
+            currentEl.textContent = "NO LOCATION FOUND";
+            return;
+          }
+          lat = geoData.results[0].latitude;
+          lon = geoData.results[0].longitude;
+          name = geoData.results[0].name;
+        } else {
+          // Default to New York
+          lat = 40.71; lon = -74.01; name = "NEW YORK CITY (DEFAULT)";
+        }
+
+        const res = await fetch(`/weather/full?lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+        
+        const f = data.forecast.current_weather || {};
+        currentEl.textContent = `${f.temperature || "?"}°C // ${name.toUpperCase()}`;
+        detailsEl.innerHTML = `WIND: ${f.windspeed} km/h<br/>DIRECTION: ${f.winddirection}°<br/>WEATHER CODE: ${f.weathercode}`;
+
+        const a = data.aqi.current || {};
+        const aqiVal = a.us_aqi || "?";
+        let aqiColor = "var(--fg)";
+        if (aqiVal > 50) aqiColor = "#ffaa00";
+        if (aqiVal > 100) aqiColor = "#ff5500";
+        if (aqiVal > 150) aqiColor = "#ff0000";
+        aqiEl.innerHTML = `<span style="color:${aqiColor}">${aqiVal}</span>`;
+        aqiDetails.innerHTML = `PM2.5: ${a.pm2_5 || "?"} µg/m³<br/>PM10: ${a.pm10 || "?"} µg/m³<br/>CO: ${a.carbon_monoxide || "?"} µg/m³<br/>NO2: ${a.nitrogen_dioxide || "?"} µg/m³`;
+
+        const daily = data.forecast.daily || {};
+        if (daily.time) {
+          let fhtml = "";
+          for (let i = 0; i < Math.min(3, daily.time.length); i++) {
+            fhtml += `<p>[${daily.time[i]}] MAX: ${daily.temperature_2m_max[i]}°C / MIN: ${daily.temperature_2m_min[i]}°C</p>`;
+          }
+          forecastEl.innerHTML = fhtml;
+        } else {
+          forecastEl.textContent = "forecast data unavailable";
+        }
+
+        const uvVal = daily.uv_index_max ? daily.uv_index_max[0] : "?";
+        let uvColor = "var(--fg)";
+        if (uvVal > 5) uvColor = "#ffaa00";
+        if (uvVal > 7) uvColor = "#ff5500";
+        if (uvVal > 10) uvColor = "#ff0000";
+        uvEl.innerHTML = `<span style="color:${uvColor}">${uvVal}</span>`;
+      } catch (e) {
+        currentEl.textContent = "WEATHER UPLINK FAILURE";
+      }
+    }
+
+    let sportsInitialized = false;
+    function initSports() {
+      if (sportsInitialized) return;
+      sportsInitialized = true;
+      loadSports();
+    }
+
+    async function loadSports() {
+      const list = document.getElementById("sports-list");
+      list.innerHTML = "syncing scoreboard...";
+      try {
+        const res = await fetch("/sports/scoreboard");
+        const data = await res.json();
+        if (!data.length) {
+          list.innerHTML = "<p>no live or recent games found.</p>";
+          return;
+        }
+        list.innerHTML = data.map(e => `
+          <div class="stat" style="border-color: var(--dim); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div class="k" style="color:var(--dim)">${e.league} // ${e.status}</div>
+              <div class="v" style="font-size:1rem;">${e.away_team} @ ${e.home_team}</div>
+            </div>
+            <div class="v" style="font-size:1.2rem;">${e.away_score} - ${e.home_score}</div>
+          </div>
+        `).join("");
+      } catch (e) {
+        list.innerHTML = "<p>sports uplink failure.</p>";
+      }
+    }
+
+    let planesInitialized = false;
+    function initPlanes() {
+      if (planesInitialized) return;
+      planesInitialized = true;
+      loadPlanes();
+    }
+
+    async function loadPlanes() {
+      const grid = document.getElementById("planes-grid");
+      grid.innerHTML = "syncing live flights...";
+      try {
+        const res = await fetch("/planes/global");
+        const data = await res.json();
+        if (!data.length) {
+          grid.innerHTML = "<p>no live flight data available.</p>";
+          return;
+        }
+        grid.innerHTML = data.map(f => `
+          <div class="stat" style="border-color: var(--dim);">
+            <div class="k" style="color:var(--dim)">${f.callsign || "N/A"} // ${f.country || "?"}</div>
+            <div class="v" style="font-size:1rem;">${f.altitude_m ? Math.round(f.altitude_m) + "m" : "?"}</div>
+            <div class="v" style="font-size:0.8rem; color:var(--dim) !important;">${f.velocity_ms ? Math.round(f.velocity_ms * 3.6) + "km/h" : "?"} // ${f.heading ? Math.round(f.heading) + "°" : "?"}</div>
+          </div>
+        `).join("");
+      } catch (e) {
+        grid.innerHTML = "<p>opensky uplink failure.</p>";
+      }
+    }
+
+    // ============= WORLD MAP =============
+    let worldInitialized = false;
+    let selectedCountry = null;
+    let countriesByCca3 = {};
+
+    function getThemeColor() {
+      const theme = currentTheme;
+      if (theme === 'amber') return '#ffb000';
+      if (theme === 'blue') return '#00aaff';
+      if (theme === 'red') return '#ff3333';
+      if (theme === 'purple') return '#cc33ff';
+      if (theme === 'white') return '#222222';
+      return '#33ff33';
+    }
+
+    function initWorld() {
+      if (worldInitialized) return;
+      const viz = document.getElementById('worldViz');
+      if (!viz) return;
+      viz.innerHTML = '';
+
+      const W = 960, H = 500;
+      const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svgElement.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      viz.appendChild(svgElement);
+
+      const svg = d3.select(svgElement);
+      const geo = window.__GEO__;
+      if (!geo) {
+        viz.innerHTML = '<p class="empty" style="padding:1rem;">world data unavailable.</p>';
+        return;
+      }
+
+      const apiData = window.__DATA__ || [];
+      apiData.forEach(c => { if (c.cca3) countriesByCca3[c.cca3] = c; });
+
+      const projection = d3.geoNaturalEarth1().fitSize([W, H], geo);
+      const path = d3.geoPath().projection(projection);
+      const fg = getThemeColor();
+
+      const features = geo.features.map(f => {
+        const p = f.properties || {};
+        let code = p.ISO_A3;
+        if (!code || code === '-99') code = p.ADM0_A3_US || p.ISO_A3 || p.ADM0_A3;
+        return { ...f, properties: { ...p, _cca3: code, ADMIN: p.ADMIN || p.NAME || p.name } };
+      });
+
       svg.selectAll("path")
         .data(features)
         .enter()
         .append("path")
         .attr("d", path)
-        .attr("__name", d => d.properties.name)
-        .each(function(d) { this.__name = d.properties.name; })
-        .classed("has-feed", d => cset.has(d.properties.name))
-        .on("click", function(event, d) {
-          svg.selectAll("path").classed("selected", false);
-          d3.select(this).classed("selected", true);
-          renderCountryNews(d.properties.name);
+        .attr("fill", "rgba(0,255,0,0.1)")
+        .attr("stroke", fg)
+        .attr("stroke-width", 0.5)
+        .on("mouseover", function() {
+          d3.select(this).attr("fill", fg);
         })
-        .append("title")
-        .text(d => d.properties.name + (cset.has(d.properties.name) ? "  ●" : ""));
-      mapLoaded = true;
+        .on("mouseout", function(_, d) {
+          d3.select(this).attr("fill", d === selectedCountry ? "var(--hi)" : "rgba(0,255,0,0.1)");
+        })
+        .on("click", (event, d) => {
+          if (selectedCountry) {
+            d3.selectAll("#worldViz path").attr("fill", "rgba(0,255,0,0.1)");
+          }
+          selectedCountry = d;
+          d3.select(event.currentTarget).attr("fill", "var(--hi)");
+          selectWorldCountry(d);
+        });
+
+      worldInitialized = true;
+
+      if (typeof loadGlobalAlerts === 'function') {
+        loadGlobalAlerts();
+      }
     }
 
-    async function initGlobe() {
-      const status = document.getElementById("globe-status");
-      if (mapLoaded) {
-        status.textContent = "ready. click any highlighted country.";
-        return;
+    async function selectWorldCountry(polygon) {
+      const cca3 = polygon.properties._cca3;
+      const data = countriesByCca3[cca3];
+      const countryName = polygon.properties.ADMIN || 'Unknown';
+
+      const newsSide = document.getElementById('country-news');
+      
+      let profileHtml = `<div id="country-profile" style="margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--fg); font-size:0.8rem;">
+        <div style="font-weight:bold; font-size:1rem; margin-bottom:0.5rem;">${countryName.toUpperCase()}</div>`;
+      
+      if (data) {
+        profileHtml += `
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.2rem; margin-bottom:0.5rem;">
+            <div>CAPITAL: ${data.capital || 'N/A'}</div>
+            <div>REGION: ${data.region || 'N/A'}</div>
+            <div>POP: ${data.population ? data.population.toLocaleString() : 'N/A'}</div>
+            <div>CUR: ${data.currencies ? Object.keys(data.currencies).join(", ") : 'N/A'}</div>
+          </div>`;
+        if (data.latlng) {
+          profileHtml += `<div id="country-climate" style="font-size:0.7rem; opacity:0.8;">Fetching climate data...</div>`;
+        } else {
+          profileHtml += `<div id="country-climate" style="font-size:0.7rem; opacity:0.8;">Climate data unavailable.</div>`;
+        }
+      } else {
+        profileHtml += `<div>Profile data unavailable.</div>`;
       }
-      status.textContent = "fetching world atlas...";
-      try {
-        const topo = await d3.json(TOPOJSON_URL);
-        buildMap(topo);
-        status.textContent = "ready. click any highlighted country.";
-      } catch (err) {
-        status.textContent = "[ERROR] could not load map: " + err.message;
+      profileHtml += `</div>`;
+      profileHtml += `<p class="prompt">$ grep -r "${countryName}" /news/archives...</p><div id="filtered-news">synchronizing...</div>`;
+      
+      newsSide.innerHTML = profileHtml;
+
+      if (data && data.latlng) {
+        const [lat, lon] = data.latlng;
+        try {
+          const res = await fetch(`/weather/full?lat=${lat}&lon=${lon}`);
+          const wData = await res.json();
+          const climateEl = document.getElementById('country-climate');
+          if (climateEl) {
+            const cur = wData.forecast?.current_weather;
+            const aqi = wData.aqi?.current?.us_aqi;
+            const temp = cur ? `${cur.temperature} ${cur.weathercode ? '°C' : ''}` : 'N/A';
+            const aqiText = aqi !== undefined ? `AQI: ${aqi}` : 'AQI: N/A';
+            climateEl.innerHTML = `CLIMATE: ${temp} // ${aqiText}`;
+          }
+        } catch (e) {
+          const climateEl = document.getElementById('country-climate');
+          if (climateEl) climateEl.textContent = "Climate uplink failure.";
+        }
+      }
+
+      const filtered = allStories.filter(s => s.country && (s.country.toLowerCase() === countryName.toLowerCase()));
+      const listEl = document.getElementById('filtered-news');
+
+      if (!filtered.length) {
+        listEl.innerHTML = `<p class="empty">No news found for ${countryName}.</p>`;
+      } else {
+        listEl.innerHTML = filtered.map(s => `
+          <fieldset style="margin-bottom:0.5rem; cursor:pointer;" onclick="loadStory('${s.link}')">
+            <legend style="font-size:0.7rem;">${s.category}</legend>
+            <div style="font-size:0.8rem;">${s.title}</div>
+          </fieldset>
+        `).join("");
       }
     }
 
     // ============= BOOT =============
-    applyTheme(currentTheme);
-    updateClocks();
-    setInterval(updateClocks, 1000);
-    setupCLI();
-    
-    document.getElementById("btn-theme").addEventListener("click", () => {
-      const themes = ["green", "amber", "blue"];
-      const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
-      applyTheme(next);
-    });
+    window.addEventListener('DOMContentLoaded', () => {
+      applyTheme(currentTheme);
+      updateClocks();
+      updateSystemStatus();
+      setInterval(updateClocks, 1000);
+      setInterval(updateSystemStatus, 30000);
+      setupCLI();
+      setupNewsFilters();
+      loadNews();
 
-    loadNews();
+       document.getElementById("btn-theme").addEventListener("click", () => {
+         const themes = ["green", "amber", "blue"];
+         const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+         applyTheme(next);
+       });
+
+      document.getElementById("btn-audio").addEventListener("click", () => {
+        audioEnabled = !audioEnabled;
+        document.getElementById("btn-audio").textContent = `[ AUDIO: ${audioEnabled ? "ON" : "OFF"} ]`;
+        if (audioEnabled) {
+          audioCtx.resume();
+          playSuccess();
+        }
+      });
+    });
   </script>
+
 
 </body>
 </html>

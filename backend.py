@@ -68,6 +68,10 @@ RAW_FEEDS = [
     {"category": "UK & EUROPEAN FEEDS",    "country": "Germany",               "url": "https://www.spiegel.de/international/index.rss"},
     # Removed: El Pais (broken)
 
+    # GLOBAL ELITE REPORTS
+    {"category": "GLOBAL ELITE REPORTS",   "country": "United Kingdom",        "url": "https://www.economist.com/finance-and-economics/rss.xml"},
+    {"category": "GLOBAL ELITE REPORTS",   "country": "United Kingdom",        "url": "https://www.economist.com/science-and-technology/rss.xml"},
+
     # GLOBAL ENGLISH FEEDS
     # Removed: CBC, Globe & Mail (broken)
     {"category": "GLOBAL ENGLISH FEEDS",   "country": "Canada",               "url": "https://www.cbc.ca/cmlink/rss-topstories"},
@@ -93,13 +97,11 @@ RAW_FEEDS = [
     {"category": "GLOBAL ENGLISH FEEDS",   "country": "South Africa",          "url": "https://mg.co.za/feed/"},
 
     # TECH & FINANCE FEEDS
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://feeds.bloomberg.com/markets/news.rss"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.investing.com/rss/news.rss"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://seekingalpha.com/market_currents.xml"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.forbes.com/business/feed/"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.marketwatch.com/rss/topstories"},
+    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.reutersagency.com/feed/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://fortune.com/feed"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://finance.yahoo.com/news/rssindex"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.forbes.com/most-popular/feed/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://techcrunch.com/feed/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.theverge.com/rss/index.xml"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.wired.com/feed/rss"},
@@ -107,8 +109,6 @@ RAW_FEEDS = [
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.cnet.com/rss/news/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://gizmodo.com/rss"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://news.ycombinator.com/rss"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "http://feeds.mashable.com/Mashable"},
-    {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "http://rss.slashdot.org/Slashdot/slashdotMain"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.blog.google/rss/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://thenextweb.com/feed/"},
     {"category": "TECH & FINANCE FEEDS",   "country": "United States of America","url": "https://www.engadget.com/rss.xml"},
@@ -147,6 +147,20 @@ def _clean_summary(raw: str, limit: int = 240) -> str:
     return text or "[No summary available]"
 
 
+def _classify_sector(title: str, summary: str) -> str:
+    text = (title + " " + summary).lower()
+    sectors = {
+        "TECH": {"tech", "ai", "software", "chip", "gpu", "crypto", "digital", "web3", "cloud"},
+        "FINANCE": {"bank", "stock", "market", "finance", "bond", "equity", "inflation", "fed"},
+        "ENERGY": {"oil", "gas", "energy", "solar", "wind", "power", "crude", "electric"},
+        "HEALTH": {"health", "medical", "vaccine", "biotech", "doctor", "pharma", "covid"},
+        "POLITICS": {"election", "government", "policy", "senate", "president", "law", "treaty"},
+    }
+    for sector, keywords in sectors.items():
+        if any(k in text for k in keywords):
+            return sector
+    return "GENERAL"
+
 def _fetch_one(feed: dict) -> list[dict]:
     country = feed.get("country", "")
     try:
@@ -165,15 +179,17 @@ def _fetch_one(feed: dict) -> list[dict]:
             }]
         out: list[dict] = []
         for entry in entries:
-            out.append({
-                "category": feed["category"],
-                "country":  country,
-                "title":    (entry.get("title") or "Untitled").strip(),
-                "link":     entry.get("link") or feed["url"],
-                "summary":  _clean_summary(
-                    entry.get("summary") or entry.get("description") or ""
-                ),
-            })
+                out.append({
+                    "category": feed["category"],
+                    "country":  country,
+                    "title":    (entry.get("title") or "Untitled").strip(),
+                    "link":     entry.get("link") or feed["url"],
+                    "summary":  _clean_summary(
+                        entry.get("summary") or entry.get("description") or ""
+                    ),
+                    "sector": _classify_sector(entry.get("title", ""), entry.get("summary") or entry.get("description") or ""),
+                })
+
         return out
     except Exception as exc:
         return [{
@@ -186,15 +202,23 @@ def _fetch_one(feed: dict) -> list[dict]:
 
 
 @app.get("/news")
-def get_news(limit: int = None):
+def get_news(limit: int = None, custom_feeds: str = None):
     now = time.time()
-    if _NEWS_CACHE["data"] is not None and (now - _NEWS_CACHE["ts"]) < NEWS_CACHE_TTL:
+    
+    # Handle custom feeds if provided (comma separated URLs)
+    active_feeds = FEEDS
+    if custom_feeds:
+        urls = [u.strip() for u in custom_feeds.split(",") if u.strip()]
+        custom_list = [{"category": "USER-FEED", "country": "Unknown", "url": u} for u in urls]
+        active_feeds = FEEDS + custom_list
+
+    if _NEWS_CACHE["data"] is not None and (now - _NEWS_CACHE["ts"]) < NEWS_CACHE_TTL and not custom_feeds:
         data = _NEWS_CACHE["data"]
     else:
         # If limit is requested and cache is empty, only fetch a few sources for speed
-        feeds_to_fetch = FEEDS
-        if limit is not None and _NEWS_CACHE["data"] is None:
-            feeds_to_fetch = FEEDS[:limit * 2]
+        feeds_to_fetch = active_feeds
+        if limit is not None and _NEWS_CACHE["data"] is None and not custom_feeds:
+            feeds_to_fetch = active_feeds[:limit * 2]
         
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             results = list(pool.map(_fetch_one, feeds_to_fetch))
@@ -202,14 +226,42 @@ def get_news(limit: int = None):
         for batch in results:
             stories.extend(batch)
         
-        _NEWS_CACHE["data"] = stories
-        _NEWS_CACHE["ts"] = now
+        if not custom_feeds:
+            _NEWS_CACHE["data"] = stories
+            _NEWS_CACHE["ts"] = now
         data = stories
     
     if limit is not None:
         return data[:limit]
     return data
 
+
+@app.get("/crypto/status")
+def get_crypto_status():
+    # Fetch Gas Price
+    gas_url = "https://api.etherscan.io/api?module=gastracker&action=gasoracle"
+    # Fetch Trending from CoinGecko (Simplified)
+    trending_url = "https://api.coingecko.com/api/v3/search/trending"
+    
+    res_gas = {}
+    res_trending = []
+    
+    try:
+        body_gas = urllib.request.urlopen(gas_url, timeout=5).read()
+        data_gas = json.loads(body_gas)
+        res_gas = data_gas.get("result", {})
+    except: pass
+    
+    try:
+        body_trend = urllib.request.urlopen(trending_url, timeout=5).read()
+        data_trend = json.loads(body_trend)
+        res_trending = [c["item"]["name"] for c in data_trend.get("coins", [])[:5]]
+    except: pass
+    
+    return {
+        "gas_price": res_gas.get("ProposeGasPrice", "—"),
+        "trending": res_trending
+    }
 
 @app.get("/stocks/search")
 def search_stocks(q: str):
@@ -254,6 +306,31 @@ def get_weather(lat: float, lon: float):
         return json.loads(body).get("current_weather", {})
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Weather fetch failed: {exc}")
+
+
+@app.get("/global/alerts")
+def get_global_alerts():
+    # USGS Earthquake API: Significant quakes in the past 7 days
+    url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson"
+    try:
+        body = urllib.request.urlopen(url, timeout=10).read()
+        data = json.loads(body)
+        alerts = []
+        for feature in data.get("features", [])[:5]:  # Top 5 significant
+            props = feature.get("properties", {})
+            coords = feature.get("geometry", {}).get("coordinates", [0, 0])
+            alerts.append({
+                "mag": props.get("mag"),
+                "place": props.get("place"),
+                "time": props.get("time"),
+                "url": props.get("url"),
+                "lat": coords[1],
+                "lon": coords[0],
+            })
+        return alerts
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"USGS fetch failed: {exc}")
+
 
 @app.get("/stocks/{symbol}")
 
@@ -397,10 +474,141 @@ def get_stocks(symbol: str, range: str = "1y", interval: str = "1d"):
 
 
 
+
+@app.get("/finance/indicators")
+def get_finance_indicators():
+    # Tickes for Commodities, Crypto, and Currencies (Yahoo Finance format)
+    symbols = {
+        "COMMODITIES": ["GC=F", "SI=F", "CL=F", "NG=F"],  # Gold, Silver, Oil, Nat Gas
+        "CRYPTO": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
+        "CURRENCIES": ["EURUSD=X", "USDJPY=X", "GBPUSD=X", "USDCNY=X"],
+        "BONDS": ["^TNX", "^FVX"],  # 10Y, 5Y Treasury Yields
+    }
+    
+    results = {"COMMODITIES": [], "CRYPTO": [], "CURRENCIES": [], "BONDS": []}
+    
+    req_headers = {"User-Agent": _YAHOO_UA}
+    
+    for category, syms in symbols.items():
+        for sym in syms:
+            try:
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym, safe='^=')}?range=5d&interval=1d"
+                req = urllib.request.Request(url, headers=req_headers)
+                body = urllib.request.urlopen(req, timeout=5).read()
+                payload = json.loads(body)
+                r = (payload.get("chart") or {}).get("result")
+                if r:
+                    meta = r[0].get("meta") or {}
+                    # Extract history for sparkline
+                    quote = (r[0].get("indicators") or {}).get("quote", [{}])[0]
+                    history = quote.get("close", [])
+                    
+                    last = meta.get("regularMarketPrice")
+                    prev = meta.get("chartPreviousClose")
+                    change = (last - prev) if (last is not None and prev is not None) else 0
+                    pct = (change / prev * 100.0) if (prev not in (None, 0)) else 0
+                    results[category].append({
+                        "symbol": sym,
+                        "name": meta.get("shortName") or sym,
+                        "last": last,
+                        "change": round(change, 4) if change else 0,
+                        "changePct": round(pct, 3) if pct else 0,
+                        "history": history
+                    })
+            except Exception:
+                continue
+    return results
+
+
+@app.get("/weather/full")
+def get_weather_full(lat: float, lon: float):
+    """Fetches forecast, AQI, and UV index for a location."""
+    # Open-Meteo Forecast
+    forecast_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto"
+    # Open-Meteo Air Quality
+    aqi_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide"
+    
+    data = {"forecast": {}, "aqi": {}, "location": {"lat": lat, "lon": lon}}
+    try:
+        body = urllib.request.urlopen(forecast_url, timeout=10).read()
+        data["forecast"] = json.loads(body)
+    except: pass
+    
+    try:
+        body = urllib.request.urlopen(aqi_url, timeout=10).read()
+        data["aqi"] = json.loads(body)
+    except: pass
+    
+    return data
+
+
+@app.get("/sports/scoreboard")
+def get_sports_scoreboard():
+    leagues = ["nfl", "nba", "mlb", "soccer", "nhl", "college-football", "college-basketball"]
+    all_events = []
+    for league in leagues:
+        try:
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{league}/scoreboard"
+            body = urllib.request.urlopen(url, timeout=5).read()
+            payload = json.loads(body)
+            for event in payload.get("events", []):
+                comp = event.get("competitions", [{}])[0]
+                competitors = comp.get("competitors", [])
+                home = next((c for c in competitors if c.get("homeAway") == "home"), {})
+                away = next((c for c in competitors if c.get("homeAway") == "away"), {})
+                all_events.append({
+                    "league": league.upper(),
+                    "name": event.get("name"),
+                    "status": event.get("status", {}).get("type", {}).get("description", "Scheduled"),
+                    "time": event.get("date"),
+                    "home_team": home.get("team", {}).get("abbreviation", "TBD"),
+                    "home_score": home.get("score", "0"),
+                    "away_team": away.get("team", {}).get("abbreviation", "TBD"),
+                    "away_score": away.get("score", "0"),
+                })
+        except Exception:
+            continue
+    return all_events[:30]
+
+
+@app.get("/planes/global")
+def get_planes_global():
+    # OpenSky Network API. 
+    # Instead of the whole world which can be empty or timeout, we'll try a few high-traffic boxes if the global one fails.
+    url = "https://opensky-network.org/api/states/all"
+    try:
+        body = urllib.request.urlopen(url, timeout=15).read()
+        data = json.loads(body)
+        flights = []
+        states = data.get("states", [])
+        if not states:
+            # Fallback: Try a specific bounding box (e.g., over Europe/US)
+            url = "https://opensky-network.org/api/states/all?lamin=30&lomin=-180&lamax=60&lomax=180"
+            body = urllib.request.urlopen(url, timeout=15).read()
+            data = json.loads(body)
+            states = data.get("states", [])
+
+        for state in states[:200]:
+            flights.append({
+                "icao24": state[0],
+                "callsign": (state[1] or "N/A").strip(),
+                "country": state[2],
+                "lon": state[5],
+                "lat": state[6],
+                "altitude_m": state[7],
+                "velocity_ms": state[9],
+                "heading": state[10],
+            })
+        return flights
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"OpenSky fetch failed: {exc}")
+
+
 # Serve the frontend (index.html) as a real website at "/"
+# MUST be registered AFTER all API routes, otherwise it shadows them with 404
 _FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
 app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=6767)
+    uvicorn.run(app, host="0.0.0.0", port=6767)
