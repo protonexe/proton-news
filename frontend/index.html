@@ -100,12 +100,14 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 .sfoot{font-size:.7rem;color:var(--dim)!important;margin-top:.35rem}
 .slinks{margin-top:.35rem;font-size:.75rem}
 .slinks a{margin-right:.7rem}
+.masthead{display:flex;gap:.8rem;align-items:baseline;flex-wrap:wrap;margin:.2rem 0 .4rem 0}
+.masthead h1{font-size:1.3rem;margin:0}
+.masthead .prompt{font-size:.85rem}
 </style>
 </head>
 <body class="terminal">
 <div class="container">
-<h1>&gt; PROTON-NEWS_v2.0</h1>
-<p class="prompt">$ ./fetch_headlines --live --feeds=110 --countries=55</p>
+<div class="masthead"><h1>&gt; PROTON-NEWS_v2.0</h1><span class="prompt">$ ./fetch_headlines --live --feeds=122 --countries=60</span></div>
 <nav id="topnav">
 <div class="nav-group">
 <button data-section="news" class="active">[ NEWS ]</button>
