@@ -699,6 +699,12 @@ def get_sports_scoreboard(league: str = None):
                         "winner": bool(t.get("winner", False)),
                     }
 
+                link_map: dict[str, str] = {}
+                for L in (event.get("links") or []):
+                    rels = L.get("rel") or [""]
+                    href = L.get("href", "")
+                    if href and rels[0] not in link_map:
+                        link_map[rels[0]] = href
                 out.append({
                     "league": f"{sport}/{lg}".upper(),
                     "league_short": lg.upper(),
@@ -710,6 +716,8 @@ def get_sports_scoreboard(league: str = None):
                     "time": event.get("date"),
                     "venue": venue,
                     "broadcast": broadcast,
+                    "url": link_map.get("gamecast") or link_map.get("live") or link_map.get("summary") or (next(iter(link_map.values())) if link_map else ""),
+                    "boxscore": link_map.get("boxscore", ""),
                     "home": team_info(home),
                     "away": team_info(away),
                     # back-compat flat fields for old frontend
