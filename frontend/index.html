@@ -75,6 +75,29 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 .story-link{display:inline-block;margin-top:.4rem}
 .chk{display:flex;gap:.4rem;align-items:center;font-size:.78rem;border:1px solid var(--dim);padding:.3rem .5rem;cursor:pointer}
 .chk input{accent-color:var(--fg)}
+/* sports cards */
+#sports-list{grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))}
+.card.sport{transition:transform .12s,border-color .12s}
+.card.sport:hover{transform:translateY(-2px);border-color:var(--fg)}
+.card.sport.live{border-color:var(--red)}
+.card.sport.final{opacity:.88}
+.shead{display:flex;gap:.4rem;align-items:center;justify-content:space-between;margin-bottom:.25rem}
+.pill{font-size:.68rem;letter-spacing:1px;border:1px solid var(--dim);padding:.12rem .45rem;color:var(--dim)!important;text-transform:uppercase;white-space:nowrap}
+.pill.league{color:var(--fg)!important;border-color:var(--fg)}
+.pill.livepill{color:var(--red)!important;border-color:var(--red);display:inline-flex;gap:.32rem;align-items:center}
+.pill.finalpill{color:var(--dim)!important}
+.pill.timepill{color:var(--hi)!important;border-color:var(--hi)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.sdetail{font-size:.75rem;color:var(--dim)!important;margin-bottom:.3rem}
+.trow{display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.32rem 0;border-top:1px dashed rgba(0,204,0,.18)}
+.tname{display:flex;gap:.5rem;align-items:center;min-width:0}
+.tlogo{width:30px;height:30px;object-fit:contain;flex-shrink:0}
+.trec{color:var(--dim)!important;font-size:.72rem;margin-left:.35rem}
+.tfull{display:block;font-size:.68rem;color:var(--dim)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.score{font-size:clamp(1.3rem,2.2vw,1.8rem);font-weight:bold;font-variant-numeric:tabular-nums;line-height:1}
+.trow.winner .score{color:var(--hi)!important;text-shadow:0 0 6px var(--fg)}
+.sfoot{font-size:.7rem;color:var(--dim)!important;margin-top:.35rem}
 </style>
 </head>
 <body class="terminal">
@@ -198,6 +221,7 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
+const CARTO_API_KEY="cb1_4lrj_1_162cf801d50f5f196ee274e2";
 const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 let allStories=[],stockChart=null,currentSymbol="AAPL",currentRange="1y",currentSector="ALL",disabledCats=new Set(JSON.parse(store.get("pn_disabled_cats","[]")));
 let sportsCache=[],sportsLeague="ALL",planesCache=[],planeMap=null,planeMarkers=null,selectedFlight=null,mapLoaded=false,worldInit=false,selectedCountry=null,customInit=false;
@@ -243,10 +267,12 @@ function initSports(){if(spInit){loadSports();return}spInit=true;$("btn-sports-r
 function setupSportsTimer(){clearInterval(spTimer);if($("opt-sports-auto").checked)spTimer=setInterval(loadSports,60000)}
 async function loadSports(){const list=$("sports-list");list.innerHTML="syncing scoreboard...";try{const url=sportsLeague==="ALL"?"/sports/scoreboard":`/sports/scoreboard?league=${encodeURIComponent(sportsLeague)}`;const r=await fetch(url);const d=await r.json();sportsCache=d;renderLeagues(d);if(!d.length){list.innerHTML="<p class='muted'>no live or recent games. ESPN has no events for these leagues right now — try REFRESH on game days.</p>";$("sports-count").textContent="0 events";return}$("sports-count").textContent=d.length+" events";list.innerHTML=d.map(card).join("")}catch(e){list.innerHTML=`<p class='muted'>sports uplink failure: ${esc(e.message)}</p>`}}
 function renderLeagues(d){const el=$("sports-leagues");const leagues=["ALL",...new Set(d.map(e=>e.league_short||e.league))];el.innerHTML="";leagues.forEach(l=>{const b=document.createElement("button");b.className="btn"+(l===sportsLeague?" active":"");b.textContent=l;b.onclick=()=>{sportsLeague=l;renderLeagues(sportsCache);const f=l==="ALL"?sportsCache:sportsCache.filter(e=>(e.league_short||e.league)===l);$("sports-list").innerHTML=f.map(card).join("")||"<p class='muted'>none.</p>"};el.appendChild(b)})}
-function card(e){const live=(e.state||"")==="in";const h=e.home||{},a=e.away||{};return `<div class="card ${live?"live":""}"><div class="row" style="justify-content:space-between"><span class="k">${esc(e.league)} // ${esc(e.status)}</span>${live?'<span class="live-tag">● LIVE</span>':""}</div><div style="font-size:.8rem" class="muted">${esc(e.detail||"")}${e.venue?" • "+esc(e.venue):""}${e.broadcast?" • "+esc(e.broadcast):""}</div><div class="row" style="margin-top:.4rem;justify-content:space-between"><span>${a.logo?`<img src="${a.logo}" width="22" height="22" style="vertical-align:middle"/> `:""}<b>${esc(a.abbr)}</b> <span class="muted">${esc(a.record||"")}</span></span><b>${esc(a.score)}</b></div><div class="row" style="justify-content:space-between"><span>${h.logo?`<img src="${h.logo}" width="22" height="22" style="vertical-align:middle"/> `:""}<b>${esc(h.abbr)}</b> <span class="muted">${esc(h.record||"")}</span></span><b>${esc(h.score)}</b></div><div class="muted" style="font-size:.72rem">${esc(e.short_name||e.name||"")}</div></div>`}
+function fmtGameTime(iso){try{const d=new Date(iso);if(isNaN(d))return "";return d.toLocaleString([],{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})}catch(e){return ""}}
+function teamRow(t){const w=!!t.winner;return `<div class="trow ${w?"winner":""}"><span class="tname">${t.logo?`<img class="tlogo" src="${t.logo}" alt="" loading="lazy"/>`:""}<span><b>${esc(t.abbr)}</b><span class="trec">${esc(t.record||"")}</span><span class="tfull">${esc(t.name||"")}</span></span></span><span class="score">${esc(t.score)}</span></div>`}
+function card(e){const st=e.state||"";const live=st==="in",post=st==="post";const h=e.home||{},a=e.away||{};const kickoff=!live&&!post&&e.time?fmtGameTime(e.time):"";return `<div class="card sport ${live?"live":post?"final":""}"><div class="shead"><span class="pill league">${esc(e.league_short||e.league)}</span>${live?'<span class="pill livepill"><span class="dot"></span>LIVE</span>':post?'<span class="pill finalpill">FINAL</span>':kickoff?`<span class="pill timepill">${esc(kickoff)}</span>`:`<span class="pill">${esc(e.status)}</span>`}</div><div class="sdetail">${esc(e.detail||e.status||"")}</div>${teamRow(a)}${teamRow(h)}<div class="sfoot">${esc(e.short_name||e.name||"")}${e.venue?" • "+esc(e.venue):""}${e.broadcast?" • "+esc(e.broadcast):""}</div></div>`}
 /* PLANES */
 let plInit=false,plTimer=null,planeLayer=null;
-function initPlanes(){if(plInit){loadPlanes();return}plInit=true;planeMap=L.map("planes-map",{worldCopyJump:true}).setView([30,10],2);L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{attribution:"©OSM ©CARTO | OpenSky",maxZoom:12}).addTo(planeMap);planeLayer=L.layerGroup().addTo(planeMap);$("btn-planes-refresh").onclick=loadPlanes;$("opt-planes-auto").onchange=setupPlaneTimer;$("planes-filter").addEventListener("input",renderPlaneList);setupPlaneTimer();loadPlanes()}
+function initPlanes(){if(plInit){loadPlanes();return}plInit=true;planeMap=L.map("planes-map",{worldCopyJump:true}).setView([30,10],2);L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key="+CARTO_API_KEY,{attribution:"©OSM ©CARTO | OpenSky",maxZoom:12}).addTo(planeMap);planeLayer=L.layerGroup().addTo(planeMap);$("btn-planes-refresh").onclick=loadPlanes;$("opt-planes-auto").onchange=setupPlaneTimer;$("planes-filter").addEventListener("input",renderPlaneList);setupPlaneTimer();loadPlanes()}
 function setupPlaneTimer(){clearInterval(plTimer);if($("opt-planes-auto").checked)plTimer=setInterval(loadPlanes,30000)}
 async function loadPlanes(){const g=$("planes-grid");try{const r=await fetch("/planes/global?limit=300");if(!r.ok)throw new Error("HTTP "+r.status);const d=await r.json();planesCache=d.filter(f=>f.lat&&f.lon);planeLayer.clearLayers();planesCache.slice(0,300).forEach(f=>{const rot=f.heading||0;const icon=L.divIcon({className:"plane-label",html:`<div style="transform:rotate(${rot}deg);font-size:16px">➤</div>`,iconSize:[18,18]});const m=L.marker([f.lat,f.lon],{icon}).bindPopup(`<b>${esc(f.callsign)}</b><br/>${esc(f.country)}<br/>ALT: ${f.altitude_ft??"?"} ft<br/>SPD: ${f.velocity_kmh??"?"} km/h (${f.velocity_kts??"?"} kts)<br/>HDG: ${f.heading?Math.round(f.heading)+"°":"—"}<br/>ICAO: ${esc(f.icao24)}${f.on_ground?"<br/>ON GROUND":""}`);planeLayer.addLayer(m)});const air=planesCache.filter(f=>!f.on_ground);const alts=air.map(f=>f.altitude_ft||0).filter(Boolean);$("planes-stats").textContent=`${planesCache.length} tracked • ${air.length} airborne • max ${(Math.max(...alts,0)).toLocaleString()} ft`;renderPlaneList()}catch(e){g.innerHTML=`<p class='muted'>opensky uplink failure: ${esc(e.message)} (rate-limited? retry in 30s)</p>`}}
 function renderPlaneList(){const q=($("planes-filter").value||"").toLowerCase();const g=$("planes-grid");const list=planesCache.filter(f=>!q||(f.callsign||"").toLowerCase().includes(q)||(f.country||"").toLowerCase().includes(q)).slice(0,24);g.innerHTML=list.map(f=>`<div class="card"><div class="k">${esc(f.callsign)} // ${esc(f.country)}</div><div class="v">${f.altitude_ft?f.altitude_ft.toLocaleString()+" ft":"—"}</div><div class="muted">${f.velocity_kmh??"?"} km/h • ${f.heading!=null?Math.round(f.heading)+"°":"—"} • ${f.icao24}</div><button class="btn" onclick="flyTo('${f.icao24}')">[ LOCATE ]</button></div>`).join("")||"<p class='muted'>no matches.</p>"}
