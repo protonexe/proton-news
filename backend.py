@@ -710,6 +710,7 @@ def get_sports_scoreboard(league: str = None):
                     "league_short": lg.upper(),
                     "name": event.get("name"),
                     "short_name": event.get("shortName", event.get("name")),
+                    "gid": event.get("id"),
                     "status": stype.get("description", stype.get("shortDetail", "Scheduled")),
                     "detail": stype.get("shortDetail", ""),
                     "state": stype.get("state", ""),
@@ -748,6 +749,55 @@ def get_sports_scoreboard(league: str = None):
 @app.get("/sports/leagues")
 def list_sports_leagues():
     return [{"sport": s, "league": lg, "label": f"{s}/{lg}"} for s, lg in ESPN_SPORTS]
+
+
+@app.get("/sports/standings")
+def get_sports_standings(sport: str = "basketball", league: str = "nba"):
+    sport = sport.strip().lower()
+    league = league.strip().lower()
+    if not any(s == sport and lg == league for s, lg in ESPN_SPORTS):
+        raise HTTPException(status_code=400, detail="Unknown sport/league")
+    url = f"https://site.web.api.espn.com/apis/v2/sports/{sport}/{league}/standings"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _YAHOO_UA})
+        body = urllib.request.urlopen(req, timeout=8).read()
+        payload = json.loads(body)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"ESPN standings failed: {exc}")
+
+    def stat_map(entry):
+        m: dict[str, str] = {}
+        for s in (entry.get("stats") or []):
+            v = s.get("displayValue", s.get("value", ""))
+            if v is None:
+                v = ""
+            m[s.get("name", "")] = str(v)
+        return m
+
+    groups = []
+    for child in payload.get("children", []) or []:
+        rows = []
+        for entry in ((child.get("standings") or {}).get("entries") or []):
+            tm = entry.get("team") or {}
+            sm = stat_map(entry)
+            rows.append({
+                "team": tm.get("displayName", tm.get("shortDisplayName", "?")),
+                "abbr": tm.get("abbreviation", "?"),
+                "logo": tm.get("logo", tm.get("logos", [{}])[0].get("href", "") if tm.get("logos") else ""),
+                "w": sm.get("wins", ""),
+                "l": sm.get("losses", ""),
+                "t": sm.get("ties", ""),
+                "pts": sm.get("points", ""),
+                "pct": sm.get("winPercent") or sm.get("leagueWinPercent", ""),
+                "gb": sm.get("gamesBehind", ""),
+                "streak": sm.get("streak", ""),
+                "rank": sm.get("rank", ""),
+                "gf": sm.get("pointsFor", ""),
+                "ga": sm.get("pointsAgainst", ""),
+                "diff": sm.get("pointDifferential") or sm.get("differential", ""),
+            })
+        groups.append({"name": child.get("name", "Standings"), "rows": rows})
+    return {"sport": sport, "league": league, "season": (payload.get("season") or {}).get("year"), "groups": groups}
 
 
 @app.get("/planes/global")
