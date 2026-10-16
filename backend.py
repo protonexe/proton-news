@@ -193,6 +193,8 @@ _YAHOO_UA = (
 SYMBOL_REGEX = r"^[A-Z0-9^=./-]{1,15}$"
 
 _NEWS_CACHE: dict = {"data": None, "ts": 0.0}
+_CRYPTO_CACHE: dict = {"data": None, "ts": 0.0}
+_CRYPTO_TTL = 300.0
 _PLANES_CACHE: dict = {"data": None, "ts": 0.0}
 _PLANES_TTL = 30.0
 
@@ -211,6 +213,25 @@ def _domain(url: str) -> str:
         return urlparse(url).netloc.replace("www.", "")
     except Exception:
         return ""
+
+
+def _team_logo(tm: dict) -> str:
+    """Best-effort team logo URL across ESPN shapes (logo str / logos list)."""
+    if not isinstance(tm, dict):
+        return ""
+    v = tm.get("logo")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+    logos = tm.get("logos") or []
+    if isinstance(logos, dict):
+        logos = [logos]
+    if isinstance(logos, list):
+        for lg in logos:
+            if isinstance(lg, dict):
+                href = lg.get("href") or lg.get("url") or ""
+                if isinstance(href, str) and href.strip():
+                    return href.strip()
+    return ""
 
 
 def _classify_sector(title: str, summary: str) -> str:
@@ -266,6 +287,26 @@ def _fetch_one(feed: dict) -> list[dict]:
                 summary_raw = str(summary_raw[0]) if summary_raw else ""
             summary_raw = str(summary_raw)
             published = entry.get("published") or entry.get("updated") or ""
+            image = ""
+            try:
+                for th in (entry.get("media_thumbnail") or []):
+                    if isinstance(th, dict) and th.get("url"):
+                        image = str(th["url"])
+                        break
+                if not image:
+                    for mc in (entry.get("media_content") or []):
+                        u = mc.get("url", "") if isinstance(mc, dict) else ""
+                        if isinstance(u, str) and re.search(r"\.(jpe?g|png|webp|gif)(\?|$)", u, re.I):
+                            image = u
+                            break
+                if not image:
+                    for ln in (entry.get("links") or []):
+                        if isinstance(ln, dict) and ln.get("rel") == "enclosure" \
+                                and "image" in str(ln.get("type", "")) and ln.get("href"):
+                            image = str(ln["href"])
+                            break
+            except Exception:
+                image = ""
             out.append({
                 "category": category,
                 "country": country,
@@ -275,6 +316,7 @@ def _fetch_one(feed: dict) -> list[dict]:
                 "sector": _classify_sector(title, summary_raw),
                 "source": _domain(link) or _domain(url),
                 "published": str(published),
+                "image": image,
             })
         return out
     except Exception:
@@ -370,6 +412,44 @@ def get_crypto_status():
     except Exception:
         pass
     return {"gas_price": res_gas.get("ProposeGasPrice", "—"), "trending": res_trending}
+
+
+@app.get("/crypto/markets")
+def get_crypto_markets(limit: int = 15):
+    now = time.time()
+    if _CRYPTO_CACHE["data"] is not None and (now - _CRYPTO_CACHE["ts"]) < _CRYPTO_TTL:
+        data = _CRYPTO_CACHE["data"]
+    else:
+        url = ("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd"
+               "&order=market_cap_desc&per_page=25&page=1&sparkline=false"
+               "&price_change_percentage=1h,24h,7d")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": _YAHOO_UA})
+            body = urllib.request.urlopen(req, timeout=15).read()
+            raw = json.loads(body)
+        except Exception as exc:
+            if _CRYPTO_CACHE["data"] is not None:
+                data = _CRYPTO_CACHE["data"]
+            else:
+                raise HTTPException(status_code=502, detail=f"CoinGecko failed: {exc}")
+        else:
+            data = [{
+                "rank": c.get("market_cap_rank"),
+                "symbol": (c.get("symbol") or "").upper(),
+                "name": c.get("name"),
+                "image": c.get("image"),
+                "price": c.get("current_price"),
+                "chg1h": c.get("price_change_percentage_1h_in_currency"),
+                "chg24h": (c.get("price_change_percentage_24h_in_currency")
+                           if c.get("price_change_percentage_24h_in_currency") is not None
+                           else c.get("price_change_percentage_24h")),
+                "chg7d": c.get("price_change_percentage_7d_in_currency"),
+                "mcap": c.get("market_cap"),
+                "volume": c.get("total_volume"),
+            } for c in (raw or [])]
+            _CRYPTO_CACHE["data"] = data
+            _CRYPTO_CACHE["ts"] = now
+    return data[: max(limit, 1)]
 
 
 @app.get("/stocks/search")
@@ -692,7 +772,7 @@ def get_sports_scoreboard(league: str = None):
                     return {
                         "abbr": tm.get("abbreviation", "TBD"),
                         "name": tm.get("displayName", tm.get("shortDisplayName", "TBD")),
-                        "logo": tm.get("logo", ""),
+                        "logo": _team_logo(tm),
                         "color": tm.get("color", "33ff33"),
                         "score": t.get("score", "0"),
                         "record": rec,
@@ -783,7 +863,7 @@ def get_sports_standings(sport: str = "basketball", league: str = "nba"):
             rows.append({
                 "team": tm.get("displayName", tm.get("shortDisplayName", "?")),
                 "abbr": tm.get("abbreviation", "?"),
-                "logo": tm.get("logo", tm.get("logos", [{}])[0].get("href", "") if tm.get("logos") else ""),
+                "logo": _team_logo(tm),
                 "w": sm.get("wins", ""),
                 "l": sm.get("losses", ""),
                 "t": sm.get("ties", ""),
