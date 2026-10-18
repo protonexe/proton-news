@@ -77,6 +77,23 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 .story-link{display:inline-block;margin-top:.4rem}
 .chk{display:flex;gap:.4rem;align-items:center;font-size:.78rem;border:1px solid var(--dim);padding:.3rem .5rem;cursor:pointer}
 .chk input{accent-color:var(--fg)}
+/* standings sidebar (slide-in, right) */
+#stand-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1199;display:none}
+#stand-backdrop.open{display:block}
+#standings-panel{position:fixed;top:0;right:0;bottom:0;width:min(560px,92vw);background:var(--bg);border-left:2px solid var(--fg);z-index:1200;transform:translateX(105%);transition:transform .18s ease;display:flex;flex-direction:column;padding:.7rem;overflow-y:auto}
+#standings-panel.open{transform:translateX(0)}
+#standings-panel .sp-head{display:flex;gap:.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:.6rem}
+#standings-panel select{background:var(--bg);color:var(--fg);border:1px solid var(--fg);font-family:inherit;padding:.35rem;max-width:260px}
+#standings-panel table{width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:.8rem}
+#standings-panel th{color:var(--dim)!important;text-align:left;padding:.25rem .3rem;font-size:.68rem;letter-spacing:.5px;border-bottom:1px solid var(--dim);white-space:nowrap}
+#standings-panel td{padding:.3rem .3rem;border-bottom:1px dashed rgba(0,204,0,.15);white-space:nowrap}
+#standings-panel td img{max-width:28px;max-height:28px;width:auto;height:auto;vertical-align:middle;margin-right:.35rem;object-fit:contain}
+#standings-panel td.num{text-align:right;font-variant-numeric:tabular-nums}
+#standings-panel .team-cell{min-width:0}
+#standings-panel .team-cell small{display:block;color:var(--dim)!important;font-size:.65rem;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+#standings-panel .grp{font-weight:bold;letter-spacing:1px;font-size:.8rem;margin:.7rem 0 .3rem}
+#sports-main{position:relative}
+#sports-main.shifted #sports-list,#sports-main.shifted #sports-leagues{margin-right:min(560px,92vw)}
 /* sports cards */
 #sports-list{grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))}
 .card.sport{transition:transform .12s,border-color .12s}
@@ -102,14 +119,16 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 .sfoot{font-size:.7rem;color:var(--dim)!important;margin-top:.35rem}
 .slinks{margin-top:.35rem;font-size:.75rem}
 .slinks a{margin-right:.7rem}
-.masthead{display:flex;gap:.8rem;align-items:baseline;flex-wrap:wrap;margin:.2rem 0 .4rem 0}
-.masthead h1{font-size:1.3rem;margin:0}
-.masthead .prompt{font-size:.85rem}
+.masthead{display:flex;gap:.8rem;align-items:center;flex-wrap:nowrap;margin:.2rem 0 .4rem 0}
+.masthead h1{font-size:1.3rem;margin:0;flex:1 1 auto;line-height:1.2}
+.masthead .prompt{font-size:.85rem;flex:0 0 auto}
+.masthead .status-group{display:flex;gap:.7rem;align-items:center;font-size:.72rem;color:var(--dim);font-family:monospace;flex:0 0 auto;line-height:1.2}
+.masthead .status-group span{white-space:nowrap}
 </style>
 </head>
 <body class="terminal">
 <div class="container">
-<div class="masthead"><h1>&gt; PROTON-NEWS_v2.0</h1><span class="prompt">$ ./fetch_headlines --live --feeds=122 --countries=60</span></div>
+<div class="masthead"><h1>&gt; PROTON-NEWS_v2.0</h1><div class="status-group"><span id="stat-feeds">-- feeds</span><span id="stat-countries">-- countries</span><span id="stat-online">● online</span><span id="world-clocks" class="muted"></span></div></div>
 <nav id="topnav">
 <div class="nav-group">
 <button data-section="news" class="active">[ NEWS ]</button>
@@ -119,8 +138,8 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 <button data-section="world">[ WORLD ]</button>
 <button data-section="planes">[ PLANES ]</button>
 <button data-section="customize">[ CUSTOMIZE ]</button>
+<button id="btn-standings-toggle" class="btn" title="toggle standings sidebar">[ STANDINGS ]</button>
 </div>
-<div class="status-group"><span id="stat-feeds">-- feeds</span><span id="stat-countries">-- countries</span><span id="stat-online">● online</span><span id="world-clocks" class="muted"></span></div>
 </nav>
 <div id="marquee-wrap"><span id="marquee-text">Initializing data stream...</span></div>
 
@@ -143,11 +162,6 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 <div class="row" style="margin-top:.4rem"><input type="text" id="stock-query" placeholder="e.g. AAPL, GC=F, BTC-USD, ^GSPC..." style="flex:1"/><button id="btn-stock-search" class="btn">[ SEARCH ]</button></div>
 <div id="stock-search-results"></div></div>
 <p id="stock-status" class="muted">ready.</p>
-<div class="row"><label style="font-weight:bold">[ WATCHLIST ]</label><button id="btn-watch-add" class="btn">[ + TRACK SYMBOL ]</button><span class="muted">auto-refresh 60s</span></div>
-<div id="watch-strip" class="row" style="margin:.4rem 0"><span class="muted">empty — track the current symbol.</span></div>
-<div class="card"><label style="font-weight:bold;letter-spacing:1px">[ PRICE ALERT ]</label>
-<div class="row" style="margin-top:.4rem"><select id="alert-cond" style="background:var(--bg);color:var(--fg);border:1px solid var(--fg);font-family:inherit;padding:.35rem"><option value="above">ABOVE</option><option value="below">BELOW</option></select><input type="number" id="alert-price" placeholder="price" step="any" style="max-width:170px"/><button id="btn-alert-add" class="btn">[ SET FOR SYMBOL ]</button></div>
-<div id="alert-list" style="margin-top:.4rem"></div></div>
 <div class="row"><label style="font-weight:bold">[ RANGE ]</label>
 <div id="range-row">
 <button data-range="1d" class="btn">[ 1D ]</button><button data-range="5d" class="btn">[ 5D ]</button><button data-range="1mo" class="btn">[ 1M ]</button><button data-range="3mo" class="btn">[ 3M ]</button><button data-range="1y" class="btn active">[ 1Y ]</button><button data-range="max" class="btn">[ ALL ]</button>
@@ -163,9 +177,6 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 </div>
 <div id="fin-tab-other" style="display:none">
 <label style="font-weight:bold;letter-spacing:1px">[ MARKET OVERVIEW ]</label>
-<div class="card" style="margin:.5rem 0"><label style="font-weight:bold;letter-spacing:1px">[ CURRENCY CONVERTER ]</label>
-<div class="row" style="margin-top:.4rem"><input type="number" id="fx-amount" value="100" step="any" style="max-width:130px"/><select id="fx-from" style="background:var(--bg);color:var(--fg);border:1px solid var(--fg);font-family:inherit;padding:.35rem"><option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>CNY</option></select><span>→</span><select id="fx-to" style="background:var(--bg);color:var(--fg);border:1px solid var(--fg);font-family:inherit;padding:.35rem"><option>EUR</option><option>USD</option><option>GBP</option><option>JPY</option><option>CNY</option></select><button id="btn-convert" class="btn">[ CONVERT ]</button></div>
-<div id="fx-result" class="v" style="margin-top:.3rem">—</div><div class="muted" style="font-size:.7rem">rates: yahoo finance 5d close</div></div>
 <div id="market-indicators" class="grid grid-3" style="margin-top:.5rem"><p class="muted">synchronizing...</p></div>
 <fieldset style="margin-top:.6rem"><legend>CRYPTO TOP 15 // COINGECKO</legend><div id="crypto-table" class="grid grid-3 muted">syncing coin data...</div></fieldset>
 </div>
@@ -188,15 +199,23 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 <label class="chk"><input type="checkbox" id="opt-live-only" /> LIVE ONLY</label>
 <span id="sports-count" class="muted"></span></div>
 <div id="sports-leagues"></div>
-<div class="row" style="margin-top:.4rem"><label style="font-weight:bold">[ STANDINGS ]</label><select id="stand-league" style="background:var(--bg);color:var(--fg);border:1px solid var(--fg);font-family:inherit;padding:.35rem;max-width:300px"></select><button id="btn-stand-load" class="btn">[ LOAD ]</button></div>
-<div id="stand-table" style="margin-top:.5rem"></div>
 <div id="sports-list" class="grid grid-2" style="margin-top:.5rem">syncing...</div>
+<div id="stand-backdrop"></div>
+<aside id="standings-panel">
+<div class="sp-head">
+<div class="row">
+<select id="stand-league"></select>
+<button id="btn-stand-load" class="btn">[ LOAD ]</button>
+</div>
+<button id="btn-stand-close" class="btn" title="close">[ X ]</button>
+</div>
+<div id="stand-table"><p class="muted">pick a league, then LOAD — or just toggle STANDINGS to open the last table.</p></div>
+</aside>
 </section>
 
 <section id="sec-world" class="section">
 <div class="row"><input type="text" id="world-search" placeholder="search country..." style="flex:1;max-width:320px"/><span id="world-count" class="muted"></span>
-<button id="btn-alerts" class="btn">[ RELOAD ALERTS ]</button>
-<label class="chk"><input type="checkbox" id="opt-quakes" checked /> QUAKE LAYER</label></div>
+<button id="btn-alerts" class="btn">[ RELOAD ALERTS ]</button></div>
 <div id="world-layout" style="margin-top:.5rem">
 <div id="worldViz"></div>
 <div id="country-news"><p class="muted">click a highlighted country to see its news.</p><div id="country-weather"></div></div>
@@ -234,7 +253,7 @@ input[type=text]{background:var(--bg);border:1px solid var(--fg);color:var(--fg)
 </section>
 
 <div id="cli-wrap"><span class="prompt">$</span><input type="text" id="cli-input" placeholder="commands: goto news|finance|sports|world|planes | search AAPL | addfeed URL | refresh | help" /></div>
-<div id="footer">PROTON NEWS v2.0 — news + finance + weather + sports + world + planes — made by <a href="https://github.com/protonexe">proton</a><br/><span class="muted">ideas: price alerts • portfolio watchlist • earthquake map layer • flight route history • RSS OPML export • per-country newsletters</span></div>
+<div id="footer">PROTON NEWS v2.0 — news + finance + weather + sports + world + planes — made by <a href="https://github.com/protonexe">proton</a><br/><span class="muted">ideas: match lineups • portfolio P&L • quake magnitude filter • flight route history • per-country newsletters</span></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -312,13 +331,8 @@ $("btn-alerts").onclick=loadAlerts;
 async function initCustomize(){if(customInit){renderCustom();return}customInit=true;renderCustom();try{const r=await fetch("/news/feeds");const d=await r.json();$("feeds-total").textContent=d.total;$("stat-feeds").textContent=d.total+" feeds";$("stat-countries").textContent=d.countries.length+" countries";$("feeds-list").innerHTML=Object.entries(d.by_category).map(([c,fs])=>`<p><b>${esc(c)}</b> (${fs.length})<br/>${fs.map(f=>`• ${esc(f.country)} — ${esc(f.url)}`).join("<br/>")}</p>`).join("");const ct=$("cat-toggles");ct.innerHTML="";Object.keys(d.by_category).forEach(c=>{const l=document.createElement("label");l.className="chk";const cb=document.createElement("input");cb.type="checkbox";cb.checked=!disabledCats.has(c);cb.onchange=()=>{if(cb.checked)disabledCats.delete(c);else disabledCats.add(c);store.set("pn_disabled_cats",JSON.stringify([...disabledCats]));renderNews()};l.appendChild(cb);l.appendChild(document.createTextNode(c));ct.appendChild(l)})}catch(e){$("feeds-list").textContent="feed list failed: "+e.message}$("btn-add-feed").onclick=()=>{const u=$("custom-url").value.trim();if(!u||!u.startsWith("http")){alert("Enter a valid http(s) RSS URL");return}const cur=JSON.parse(store.get("pn_custom_feeds","[]"));if(cur.includes(u)){alert("Already added");return}cur.push(u);store.set("pn_custom_feeds",JSON.stringify(cur));$("custom-url").value="";renderCustom();loadNews()};$("btn-reset-pref").onclick=()=>{store.del("pn_custom_feeds");store.del("pn_disabled_cats");disabledCats=new Set();renderCustom();initCustomize2()};$("btn-export").onclick=()=>{const blob=new Blob([JSON.stringify(allStories,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="proton-news.json";a.click()}}
 function initCustomize2(){customInit=false;initCustomize()}
 function renderCustom(){const cur=JSON.parse(store.get("pn_custom_feeds","[]"));$("custom-list").innerHTML=cur.length?cur.map(u=>`<div class="row" style="margin:.25rem 0"><span style="font-size:.78rem;flex:1">${esc(u)}</span><button class="btn danger" data-u="${esc(u)}">[ REMOVE ]</button></div>`).join(""):"<p class='muted'>no custom feeds yet.</p>";$("custom-list").querySelectorAll("button").forEach(b=>b.onclick=()=>{const cur2=JSON.parse(store.get("pn_custom_feeds","[]")).filter(x=>x!==b.dataset.u);store.set("pn_custom_feeds",JSON.stringify(cur2));renderCustom();loadNews()})}
-/* FEATURES v2.1 — watchlist, price alerts, match reminders, flight trails, airport lookup, quake layer, standings, OPML */
+/* FEATURES v2.3 — market status, crypto table, countdowns, top10, read-aloud, clocks, standings sidebar */
 function notifyUser(title,body){try{if(!("Notification" in window))return;if(Notification.permission==="granted"){new Notification(title,{body:body||""})}else if(Notification.permission!=="denied"){Notification.requestPermission()}}catch(e){}}
-let watchlist=[];try{watchlist=JSON.parse(store.get("pn_watchlist","[]"))}catch(e){watchlist=[]}
-async function refreshWatch(){const el=$("watch-strip");if(!el)return;if(!watchlist.length){el.innerHTML="<span class='muted'>empty — track the current symbol.</span>";return}el.innerHTML="<span class='muted'>syncing...</span>";const rows=await Promise.all(watchlist.map(async sym=>{try{const r=await fetch(`/stocks/${encodeURIComponent(sym)}?range=5d`);if(!r.ok)throw 0;const s=await r.json();return {sym,ok:1,last:s.last,ch:s.changePct}}catch(e){return {sym,ok:0}}}));el.innerHTML="";rows.forEach(w=>{const b=document.createElement("button");b.className="btn";const c=(w.ch||0)>=0?"pos":"neg";b.innerHTML=w.ok?`${esc(w.sym)} ${fmtNum(w.last)} <span class="${c}">${fmtPct(w.ch)}</span> [x]`:`${esc(w.sym)} ? [x]`;b.title="open chart (right side removes)";b.onclick=ev=>{if(ev.offsetX>b.offsetWidth-36){watchlist=watchlist.filter(x=>x!==w.sym);store.set("pn_watchlist",JSON.stringify(watchlist));refreshWatch()}else{currentSymbol=w.sym;setSection("finance");loadStock(w.sym,currentRange)}};el.appendChild(b)})}
-let priceAlerts=[];try{priceAlerts=JSON.parse(store.get("pn_alerts","[]"))}catch(e){priceAlerts=[]}
-function renderAlerts(){const el=$("alert-list");if(!el)return;el.innerHTML=priceAlerts.length?priceAlerts.map((a,i)=>`<div class="row" style="margin:.2rem 0"><span>[${esc(a.sym)} ${a.cond==="above"?">=":"<="} ${esc(String(a.price))}]</span><button class="btn danger" data-i="${i}">[ DEL ]</button></div>`).join(""):"<span class='muted'>no alerts set.</span>";el.querySelectorAll("button").forEach(b=>b.onclick=()=>{priceAlerts.splice(Number(b.dataset.i),1);store.set("pn_alerts",JSON.stringify(priceAlerts));renderAlerts()})}
-async function checkAlerts(){if(!priceAlerts.length)return;const syms=[...new Set(priceAlerts.map(a=>a.sym))];const px={};await Promise.all(syms.map(async s=>{try{const r=await fetch(`/stocks/${encodeURIComponent(s)}?range=1d`);if(!r.ok)return;const d=await r.json();px[s]=d.last}catch(e){}}));let changed=false;priceAlerts=priceAlerts.filter(a=>{const p=px[a.sym];if(p===undefined||p===null)return true;if(a.cond==="above"?p>=a.price:p<=a.price){notifyUser("PRICE ALERT "+a.sym,`${a.sym} @ ${p} (${a.cond} ${a.price})`);changed=true;return false}return true});if(changed){store.set("pn_alerts",JSON.stringify(priceAlerts));renderAlerts()}}
 let reminders=[];try{reminders=JSON.parse(store.get("pn_reminders","[]"))}catch(e){reminders=[]}
 function remKey(lg,gid){return lg+":"+gid}
 function remindBtn(e){if(!e.gid||(e.state||"")==="post")return "";const k=remKey(e.league_short||e.league,e.gid);const on=reminders.some(r=>r.k===k);return `<button class="btn" style="font-size:.62rem;padding:.12rem .4rem" onclick="toggleRemind('${esc(e.league_short||e.league)}','${esc(String(e.gid))}','${esc((e.short_name||e.name||"").replace(/'/g,""))}')">${on?"[ON]":"[REMIND]"}</button>`}
@@ -329,15 +343,16 @@ function recordTrails(){try{if(!window._trailLayer&&planeMap){window._trailLayer
 const AIRPORTS=[["JFK","New York JFK",40.6413,-73.7781],["LAX","Los Angeles",33.9416,-118.4085],["ORD","Chicago O'Hare",41.9742,-87.9073],["LHR","London Heathrow",51.47,-0.4543],["CDG","Paris CDG",49.0097,2.5479],["FRA","Frankfurt",50.0379,8.5622],["AMS","Amsterdam Schiphol",52.31,4.7683],["MAD","Madrid Barajas",40.4983,-3.5676],["BCN","Barcelona",41.2974,2.0785],["FCO","Rome Fiumicino",41.8003,12.2389],["ZRH","Zurich",47.4581,8.5555],["VIE","Vienna",48.1103,16.5697],["CPH","Copenhagen",55.618,12.656],["ARN","Stockholm Arlanda",59.6519,17.9186],["OSL","Oslo Gardermoen",60.1939,11.1004],["HEL","Helsinki",60.3172,24.9633],["DUB","Dublin",53.4214,-6.27],["LIS","Lisbon",38.7742,-9.1342],["ATH","Athens",37.9364,23.9445],["IST","Istanbul",41.2753,28.7519],["DXB","Dubai",25.2532,55.3657],["DOH","Doha Hamad",25.2731,51.6081],["AUH","Abu Dhabi",24.433,54.6511],["RUH","Riyadh",24.9576,46.6988],["JED","Jeddah",21.6796,39.1565],["TLV","Tel Aviv",32.0114,34.8867],["CAI","Cairo",30.1219,31.4056],["JNB","Johannesburg OR Tambo",-26.1392,28.246],["LOS","Lagos",6.5774,3.3212],["NBO","Nairobi",-1.3192,36.9278],["ADD","Addis Ababa",8.9779,38.7993],["BOM","Mumbai",19.0896,72.8656],["DEL","Delhi",28.5562,77.1],["BLR","Bengaluru",13.1986,77.7066],["MAA","Chennai",13.0674,80.2373],["HYD","Hyderabad",17.2313,78.4299],["KHI","Karachi",24.9065,67.1608],["DAC","Dhaka",23.8433,90.3978],["CMB","Colombo",7.1741,79.8841],["KTM","Kathmandu",27.6966,85.3591],["BKK","Bangkok Suvarnabhumi",13.69,100.7501],["SIN","Singapore Changi",1.3644,103.9915],["KUL","Kuala Lumpur",2.7456,101.7072],["CGK","Jakarta",-6.1256,106.656],["MNL","Manila",14.5086,121.0194],["HKG","Hong Kong",22.308,113.9145],["TPE","Taipei Taoyuan",25.0797,121.2342],["ICN","Seoul Incheon",37.4602,126.4407],["NRT","Tokyo Narita",35.772,140.3929],["HND","Tokyo Haneda",35.5494,139.7798],["KIX","Osaka Kansai",34.4347,135.2441],["PEK","Beijing Capital",40.0799,116.6031],["PVG","Shanghai Pudong",31.1443,121.8083],["CAN","Guangzhou",23.3924,113.299],["SYD","Sydney",-33.9399,151.1753],["MEL","Melbourne",-37.669,144.841],["AKL","Auckland",-37.0082,174.785],["GRU","Sao Paulo Guarulhos",-23.4356,-46.4731],["EZE","Buenos Aires Ezeiza",-34.8222,-58.5358],["BOG","Bogota",4.7016,-74.143],["MEX","Mexico City",19.4363,-99.0721],["YYZ","Toronto Pearson",43.6777,-79.6248],["YVR","Vancouver",49.1967,-123.1815],["SFO","San Francisco",37.6213,-122.379],["SEA","Seattle",47.4502,-122.3088],["DEN","Denver",39.8561,-104.6737],["DFW","Dallas Fort Worth",32.8998,-97.0403],["ATL","Atlanta",33.6407,-84.4277],["MIA","Miami",25.7932,-80.2906],["IAD","Washington Dulles",38.9531,-77.4565],["BOS","Boston Logan",42.3656,-71.0096]];
 function havKm(a,b,c,d){const R=6371,t=Math.PI/180;const h=Math.sin((c-a)*t/2)*Math.sin((c-a)*t/2)+Math.cos(a*t)*Math.cos(c*t)*Math.sin((d-b)*t/2)*Math.sin((d-b)*t/2);return 2*R*Math.asin(Math.sqrt(h))}
 function onMapClick(ev){try{let best=null,bd=1e9;for(const ap of AIRPORTS){const dd=havKm(ev.latlng.lat,ev.latlng.lng,ap[2],ap[3]);if(dd<bd){bd=dd;best=ap}}if(best&&planeMap){L.popup().setLatLng(ev.latlng).setContent(`<b>${esc(best[0])} — ${esc(best[1])}</b><br/>${bd.toFixed(1)} km from click`).openOn(planeMap)}}catch(e){}}
-async function drawQuakes(){try{let layer=null;if(window._wsvg){layer=window._wsvg.select("#quake-layer");if(layer.empty()){window._wsvg.append("g").attr("id","quake-layer");layer=window._wsvg.select("#quake-layer")}layer.selectAll("*").remove()}if(!$("opt-quakes")||!$("opt-quakes").checked||!window._wproj)return;const r=await fetch("/global/alerts");const d=await r.json();(d||[]).forEach(a=>{if(a.lat===undefined||a.lon===undefined||!layer)return;const p=window._wproj([a.lon,a.lat]);if(!p)return;layer.append("circle").attr("cx",p[0]).attr("cy",p[1]).attr("r",2+(a.mag||0)*1.1).attr("fill","rgba(255,85,85,.3)").attr("stroke","#ff5555").attr("stroke-width",1).append("title").text(`M${a.mag} ${a.place||""}`)})}catch(e){}}
-const _loadAlertsRef=loadAlerts;loadAlerts=async function(){await _loadAlertsRef();drawQuakes()};
+function toggleStandings(){const p=$("standings-panel");const b=$("stand-backdrop");if(p&&b){p.classList.toggle("open");b.classList.toggle("open")}}
 async function initStandings(){const sel=$("stand-league");if(!sel||sel.options.length)return;try{const r=await fetch("/sports/leagues");const d=await r.json();const OKSTAND=new Set(["football|nfl","basketball|nba","baseball|mlb","hockey|nhl","basketball|wnba","soccer|eng.1","soccer|esp.1","soccer|ger.1","soccer|ita.1","soccer|fra.1","soccer|usa.1","soccer|uefa.champions"]);const tl=d.filter(x=>OKSTAND.has(x.sport+"|"+x.league));sel.innerHTML="";tl.forEach(x=>{const o=document.createElement("option");o.value=x.sport+"|"+x.league;o.textContent=x.label;if(x.sport==="basketball"&&x.league==="nba")o.selected=true;sel.appendChild(o)})}catch(e){}}
-async function loadStandings(){const el=$("stand-table");const v=($("stand-league").value||"basketball|nba").split("|");el.innerHTML="<span class='muted'>loading table...</span>";try{const r=await fetch(`/sports/standings?sport=${encodeURIComponent(v[0])}&league=${encodeURIComponent(v[1])}`);if(!r.ok)throw new Error("HTTP "+r.status);const d=await r.json();if(!d.groups||!d.groups.length){el.innerHTML="<span class='muted'>no standings for this league.</span>";return}el.innerHTML=d.groups.map(g=>{if(!g.rows.length)return "";const rows=g.rows.map((x,i)=>`<tr><td class="muted">${i+1}</td><td>${x.logo?`<img src="${x.logo}" width="20" height="20" style="vertical-align:middle" loading="lazy"/> `:""}<b>${esc(x.abbr)}</b> <span class="muted">${esc(x.team)}</span></td><td>${esc(x.w)}</td><td>${esc(x.l)}</td><td>${esc(x.t||"—")}</td><td>${esc(x.pts||"—")}</td><td>${esc(x.pct||"—")}</td><td>${esc(x.gb||"—")}</td><td>${esc(x.streak||"—")}</td></tr>`).join("");return `<fieldset><legend>${esc(g.name)}</legend><table style="width:100%;font-size:.78rem;border-collapse:collapse"><tr style="color:var(--dim)"><td>#</td><td>TEAM</td><td>W</td><td>L</td><td>T</td><td>PTS</td><td>PCT</td><td>GB</td><td>STRK</td></tr>${rows}</table></fieldset>`}).join("")||"<span class='muted'>no standings.</span>"}catch(e){el.innerHTML=`<span class='muted'>standings failed: ${esc(e.message)}</span>`}}
+function stRows(g){return g.rows.map((x,i)=>`<tr><td class="muted num">${x.rank||i+1}</td><td class="team-cell">${x.logo?`<img src="${esc(x.logo)}" alt="" loading="lazy"/> `:""}<b>${esc(x.abbr)}</b><small>${esc(x.team)}</small></td><td class="num">${esc(x.w)}</td><td class="num">${esc(x.l)}</td><td class="num">${esc(x.t||"—")}</td><td class="num">${esc(x.pts||"—")}</td><td class="num">${esc(x.pct||"—")}</td><td class="num">${esc(x.gb||"—")}</td><td class="num">${esc(x.streak||"—")}</td></tr>`).join("")}
+function stHead(){return `<tr style="color:var(--dim)"><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>T</th><th>PTS</th><th>PCT</th><th>GB</th><th>STRK</th></tr>`}
+async function loadStandings(){const el=$("stand-table");const v=($("stand-league").value||"basketball|nba").split("|");el.innerHTML="<span class='muted'>loading table...</span>";try{const r=await fetch(`/sports/standings?sport=${encodeURIComponent(v[0])}&league=${encodeURIComponent(v[1])}`);if(!r.ok)throw new Error("HTTP "+r.status);const d=await r.json();if(!d.groups||!d.groups.length){el.innerHTML="<span class='muted'>no standings for this league.</span>";return}el.innerHTML=d.groups.map(g=>`<fieldset style="margin-bottom:.6rem"><legend>${esc(g.name)}</legend><table style="width:100%;border-collapse:collapse">${stHead()}${stRows(g)}</table></fieldset>`).join("")||"<span class='muted'>no standings.</span>"}catch(e){el.innerHTML=`<span class='muted'>standings failed: ${esc(e.message)}</span>`}}
 function downloadFile(name,text,type){const b=new Blob([text],{type:type||"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 async function exportOPML(){let items=[];const custom=JSON.parse(store.get("pn_custom_feeds","[]"));if(custom.length){items=custom.map(u=>({title:u,xml:u}))}else{try{const r=await fetch("/news/feeds");const d=await r.json();for(const c of Object.values(d.by_category))for(const f of c)items.push({title:f.country+" — "+f.url,xml:f.url})}catch(e){}}const body=items.map(o=>`    <outline type="rss" text="${esc(o.title)}" xmlUrl="${esc(o.xml)}"/>`).join("\n");downloadFile("proton-news.opml",`<opml version="2.0"><head><title>Proton News feeds</title></head><body>\n${body}\n</body></opml>`,"text/xml")}
 function importOPML(file){const rd=new FileReader();rd.onload=()=>{try{const doc=new DOMParser().parseFromString(String(rd.result),"text/xml");const urls=[...doc.querySelectorAll("outline[xmlUrl]")].map(o=>o.getAttribute("xmlUrl")).filter(u=>u&&u.startsWith("http"));if(!urls.length){alert("No feed URLs found in file");return}const cur=JSON.parse(store.get("pn_custom_feeds","[]"));let n=0;for(const u of urls){if(!cur.includes(u)){cur.push(u);n++}}store.set("pn_custom_feeds",JSON.stringify(cur));renderCustom();loadNews();alert(`Imported ${n} feed(s), skipped ${urls.length-n} duplicate(s)`)}catch(e){alert("OPML parse failed: "+e.message)}};rd.readAsText(file)}
 let featInit=false;
-function initFeatures(){if(featInit)return;featInit=true;try{$("btn-watch-add").onclick=()=>{if(!watchlist.includes(currentSymbol)){watchlist.push(currentSymbol);store.set("pn_watchlist",JSON.stringify(watchlist));refreshWatch()}};$("btn-alert-add").onclick=()=>{const p=parseFloat($("alert-price").value);if(isNaN(p)){alert("Enter a price");return}const cond=$("alert-cond").value;priceAlerts.push({sym:currentSymbol,cond,price:p});store.set("pn_alerts",JSON.stringify(priceAlerts));$("alert-price").value="";renderAlerts();notifyUser("Alert armed",`${currentSymbol} ${cond} ${p}`)};$("btn-stand-load").onclick=loadStandings;$("btn-opml-export").onclick=exportOPML;$("opml-file").onchange=e=>{if(e.target.files[0])importOPML(e.target.files[0]);e.target.value=""};$("opt-quakes").onchange=drawQuakes;$("btn-alerts").onclick=()=>loadAlerts();renderAlerts();refreshWatch();initStandings();setInterval(checkAlerts,60000);setInterval(refreshWatch,90000);setInterval(checkReminders,30000);setTimeout(()=>{loadAlerts()},4000);try{$("opt-live-only").onchange=()=>{try{loadSports()}catch(e){}}}catch(e){}try{$("min-alt").onchange=()=>{minAltFt=Number($("min-alt").value||0);renderPlaneList()}}catch(e){}try{$("btn-convert").onclick=convertFx;["fx-amount","fx-from","fx-to"].forEach(id=>{const n=$(id);if(n){n.addEventListener("input",convertFx);n.addEventListener("change",convertFx)}})}catch(e){}setInterval(updateMktStatus,60000);updateMktStatus();setInterval(updateCountdowns,30000)}catch(e){console.error(e)}}
+function initFeatures(){if(featInit)return;featInit=true;try{$("btn-stand-load").onclick=()=>{toggleStandings();loadStandings()};$("btn-standings-toggle").onclick=()=>{toggleStandings();const p=$("standings-panel");if(p&&p.classList.contains("open")&&!$("stand-table").dataset.loaded)$("btn-stand-load").click()};$("btn-stand-close").onclick=toggleStandings;$("stand-backdrop").onclick=toggleStandings;$("btn-opml-export").onclick=exportOPML;$("opml-file").onchange=e=>{if(e.target.files[0])importOPML(e.target.files[0]);e.target.value=""};$("btn-alerts").onclick=()=>loadAlerts();initStandings();setInterval(checkReminders,30000);setTimeout(()=>{loadAlerts()},4000);try{$("opt-live-only").onchange=()=>{try{loadSports()}catch(e){}}}catch(e){}try{$("min-alt").onchange=()=>{minAltFt=Number($("min-alt").value||0);renderPlaneList()}}catch(e){}try{$("btn-convert").onclick=convertFx;["fx-amount","fx-from","fx-to"].forEach(id=>{const n=$(id);if(n){n.addEventListener("input",convertFx);n.addEventListener("change",convertFx)}})}catch(e){}setInterval(updateMktStatus,60000);updateMktStatus();setInterval(updateCountdowns,30000)}catch(e){console.error(e)}}
 /* FEATURES v2.2 — market status, fx converter, crypto table, countdowns, top10, read-aloud, clocks */
 function updateMktStatus(){const el=$("mkt-status");if(!el)return;try{const et=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",weekday:"short",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date());const g=t=>(et.find(p=>p.type===t)||{}).value;const wd=g("weekday"),mins=Number(g("hour"))*60+Number(g("minute"));const open=!["Sat","Sun"].includes(wd)&&mins>=570&&mins<960;el.textContent=open?"● NYSE OPEN":"○ NYSE CLOSED";el.className=open?"pill livepill":"pill"}catch(e){el.textContent="NYSE ?"}}
 async function ensureFx(){if(window._fx&&window._fx.CURRENCIES&&window._fx.CURRENCIES.length)return window._fx;const r=await fetch("/finance/indicators");window._fx=await r.json();return window._fx}
