@@ -26,6 +26,7 @@
     if(btn) btn.textContent="[ ◐ "+t.name+" ]";
     document.querySelectorAll("[data-theme-pick]").forEach(n=>
       n.classList.toggle("act",n.dataset.themePick===t.id));
+    document.dispatchEvent(new CustomEvent("pn-theme",{detail:t.id}));
     if(!silent) toast("theme: "+t.name);
   }
 

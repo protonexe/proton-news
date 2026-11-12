@@ -947,7 +947,7 @@ def get_sports_standings(sport: str = "basketball", league: str = "nba"):
 
 
 @app.get("/planes/global")
-def get_planes_global(limit: int = 300, lamin: float = None, lamax: float = None, lomin: float = None, lomax: float = None):
+def get_planes_global(limit: int = 300, lamin: float = None, lamax: float = None, lomin: float = None, lomax: float = None, spread: int = 0):
     now = time.time()
     use_cache = (
         _PLANES_CACHE["data"] is not None
@@ -1002,6 +1002,23 @@ def get_planes_global(limit: int = 300, lamin: float = None, lamax: float = None
         if lamin is None:
             _PLANES_CACHE["data"] = flights
             _PLANES_CACHE["ts"] = now
+        if spread:
+            # geographically-even sample so the map paints the whole world
+            # instead of only the 300 highest aircraft.
+            import random as _random
+            pool = list(flights)
+            _random.Random(7).shuffle(pool)
+            picked: list[dict] = []
+            per_cell: dict[tuple[int, int], int] = {}
+            for f in pool:
+                cell = (int(f["lat"] // 10), int(f["lon"] // 10))
+                if per_cell.get(cell, 0) >= 3:
+                    continue
+                per_cell[cell] = per_cell.get(cell, 0) + 1
+                picked.append(f)
+                if len(picked) >= limit:
+                    break
+            return picked
         return flights[:limit]
     except Exception as exc:
         # serve stale cache if available
