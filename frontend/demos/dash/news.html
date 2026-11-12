@@ -13,6 +13,16 @@
 .article .bullets li::before{content:">";position:absolute;left:0;color:var(--dim)}
 .article .tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.6rem}
 .article .note{font-size:.66rem;color:var(--dim);border-top:1px dashed var(--line);padding-top:.5rem;margin-top:.8rem;line-height:1.5}
+.xbody{margin-top:.2rem}
+.xload{font-size:.7rem;color:var(--dim);letter-spacing:1.2px;border-left:2px solid var(--line);
+  padding:.4rem .6rem;background:var(--panel);animation:xpulse 1.4s ease-in-out infinite}
+@keyframes xpulse{0%,100%{opacity:.45}50%{opacity:1}}
+.article p.xfail{font-size:.76rem;line-height:1.55;color:var(--dim);border-left:2px solid var(--amber);
+  padding:.45rem .65rem;background:var(--panel);opacity:1}
+.xbody p:last-child{margin-bottom:.4rem}
+.xfig{margin:0 0 .85rem;border:1px solid var(--line);background:var(--panel);overflow:hidden}
+.xfig img{display:block;width:100%;max-height:320px;object-fit:cover;filter:saturate(.9)}
+.xfig figcaption{font-size:.56rem;color:var(--dim);letter-spacing:1px;padding:.3rem .4rem;border-top:1px dashed var(--line)}
 #readerpane{font-size:14px}
 @media(max-width:860px){#q{max-width:none}}
 </style>
@@ -45,7 +55,8 @@ let readSet=new Set();
 try{readSet=new Set(JSON.parse(localStorage.getItem(KEY_READ)||"[]"));}catch(e){}
 let fs=Number(localStorage.getItem(KEY_FS)||14);
 let stories=[], view=[], sel=-1, query="", sector="ALL", unreadOnly=false;
-let speaking=false;
+let speaking=false, fullText="", artSeq=0;
+const ART_CACHE=new Map();
 
 const params=new URLSearchParams(location.search);
 if(params.get("country")){query=params.get("country");document.getElementById("q").value=query;}
@@ -107,20 +118,19 @@ function open(i){
   sel=i;
   const s=view[i];
   readSet.add(keyOf(s));saveRead();renderList();
+  const gen=++artSeq;
+  fullText="";
   const sum=s.summary&&s.summary!=="[No summary available]"?s.summary:"";
-  const pts=sentences(sum);
-  const body=sum
-    ? `<p class="lead">${PN.esc(sum)}</p>`+
-      (pts.length>1?`<ul class="bullets">${pts.slice(1).map(p=>`<li>${PN.esc(p)}</li>`).join("")}</ul>`:"")+
-      `<p>The full report continues at the source. This reader column is wired to accept the extracted article body — the layout, typography and controls stay fixed while the wire list keeps its place on the left.</p>`
-    : `<p class="lead">${PN.esc(s.title)}</p><p>This feed supplied no summary. The pane falls back to the headline, feed metadata and a direct source link so nothing breaks when a publisher ships an empty description.</p>`;
+  const intro=sum
+    ? `<p class="lead">${PN.esc(sum)}</p>`
+    : `<p class="lead">${PN.esc(s.title)}</p>`;
   reader.innerHTML=`
     <article class="article">
       <div class="crumb">NEWS / ${PN.esc((s.category||"WORLD").toUpperCase())} / ${PN.esc((s.sector||"GENERAL"))}</div>
       <div class="tags">
         <span class="tag">${PN.esc(s.sector||"GEN")}</span>
         <span class="tag">${PN.esc(s.country||"")}</span>
-        ${s.image?'<span class="tag">MEDIA</span>':''}
+        <span class="tag" id="x-tag" style="display:none"></span>
       </div>
       <h1>${PN.esc(s.title)}</h1>
       <div class="am">
@@ -129,7 +139,8 @@ function open(i){
         ${s.published?`<span>·</span><span title="${PN.esc(s.published)}">filed ${PN.esc(s.published)}</span>`:""}
         <span>·</span><span>${PN.esc(s.country||"")}</span>
       </div>
-      ${body}
+      ${intro}
+      <div class="xbody" id="xbody"><div class="xload">▚ extracting article body from ${PN.esc(s.source||"source")}…</div></div>
       <div class="controls">
         <button id="c-prev">[ ← PREV ]</button>
         <button id="c-next">[ NEXT → ]</button>
@@ -141,7 +152,7 @@ function open(i){
         <button id="c-fsup" title="bigger">[ A+ ]</button>
         <span class="pos" id="c-pos">${String(i+1).padStart(2,"0")} / ${String(view.length).padStart(2,"0")}</span>
       </div>
-      <div class="note">DEMO READER · lead + key points come from the feed summary · ARTICLE BODY HOOK: replace the last paragraph with extracted text.</div>
+      <div class="note" id="xnote">READER · feed summary above · extracting full article text…</div>
     </article>`;
   reader.querySelector("#c-prev").onclick=()=>open(i-1);
   reader.querySelector("#c-next").onclick=()=>open(i+1);
@@ -161,17 +172,75 @@ function open(i){
   reader.querySelector("#c-tts").onclick=()=>{
     if(speaking){try{speechSynthesis.cancel();}catch(e){}speaking=false;PN.toast("stopped");return;}
     try{
-      const u=new SpeechSynthesisUtterance(s.title+". "+sum);
+      const u=new SpeechSynthesisUtterance(s.title+". "+(fullText||sum));
       u.rate=1;u.pitch=1;
       u.onend=()=>{speaking=false;const b=reader.querySelector("#c-tts");if(b)b.textContent="[ READ ALOUD ]";};
       speechSynthesis.cancel();speechSynthesis.speak(u);
-      speaking=true;PN.toast("reading aloud");
+      speaking=true;PN.toast(fullText?"reading full text aloud":"reading summary aloud");
       reader.querySelector("#c-tts").textContent="[ STOP ]";
     }catch(e){PN.toast("speech unavailable");}
   };
   reader.querySelector("#c-pos").textContent=String(i+1).padStart(2,"0")+" / "+String(view.length).padStart(2,"0");
   reader.scrollTop=0;
   if(window.innerWidth<=860)split.classList.add("reading");
+  loadFullText(s,gen,sum);
+}
+
+async function loadFullText(s,gen,sum){
+  if(!s.link||/news\.google\.com/.test(s.link)){
+    failExtract(gen,"this feed points at a Google News redirect page");
+    return;
+  }
+  const cached=ART_CACHE.get(s.link);
+  if(cached){paintExtract(cached,gen,s,sum);return;}
+  try{
+    const d=await PN.fetchJSON("/article/extract?url="+encodeURIComponent(s.link),45000);
+    if(gen!==artSeq)return;
+    if(!d||!Array.isArray(d.paragraphs)||!d.paragraphs.length)throw new Error("empty body");
+    ART_CACHE.set(s.link,d);
+    if(ART_CACHE.size>60)ART_CACHE.delete(ART_CACHE.keys().next().value);
+    paintExtract(d,gen,s,sum);
+  }catch(e){
+    if(gen!==artSeq)return;
+    const msg=String((e&&e.message)||"extraction failed").replace(/^HTTP \d+: ?/,"");
+    failExtract(gen,msg);
+  }
+}
+
+function paintExtract(d,gen,s,sum){
+  if(gen!==artSeq)return;
+  const box=document.getElementById("xbody");
+  if(!box)return;
+  const norm=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  const lead=norm(sum).slice(0,90);
+  let paras=d.paragraphs.filter(p=>!lead||norm(p).slice(0,90)!==lead);
+  if(!paras.length)paras=d.paragraphs;
+  fullText=paras.join(" ");
+  const fig=d.image
+    ? `<figure class="xfig"><img src="${PN.esc(d.image)}" alt="" loading="lazy" onerror="this.closest('figure').remove()"/>`+
+      `<figcaption>SOURCE IMAGE · ${PN.esc(d.site||"")}</figcaption></figure>`
+    : "";
+  box.innerHTML=fig+paras.map(p=>`<p>${PN.esc(p)}</p>`).join("");
+  const tag=document.getElementById("x-tag");
+  if(tag){tag.style.display="";tag.textContent="FULL TEXT";}
+  const note=document.getElementById("xnote");
+  if(note){
+    const bits=[];
+    if(d.words)bits.push(PN.fmtNum(d.words,0)+" words");
+    if(d.byline)bits.push("by "+d.byline);
+    if(d.published)bits.push(String(d.published).slice(0,10));
+    bits.push("via "+String(d.extractor||"extractor"));
+    note.textContent="EXTRACTED FROM SOURCE · "+bits.join(" · ");
+  }
+}
+
+function failExtract(gen,msg){
+  if(gen!==artSeq)return;
+  const box=document.getElementById("xbody");
+  if(box)box.innerHTML=`<p class="xfail">no readable article body could be extracted from this source.<br/>
+    <span class="small">${PN.esc(msg||"publisher blocks crawlers, or the page is JS-only")} — the feed summary above is what the wire exposes. use OPEN SOURCE ↗ for the full story.</span></p>`;
+  const note=document.getElementById("xnote");
+  if(note)note.textContent="FEED SUMMARY ONLY · extraction unavailable";
 }
 
 document.getElementById("q").addEventListener("input",e=>{

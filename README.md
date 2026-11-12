@@ -10,6 +10,7 @@ A high-fidelity, 1980s-style terminal dashboard for global news, finance, weathe
 - **World Map**: D3 Natural Earth map, countries with live sources highlighted, click → country news, search, USGS seismic alerts.
 - **Planes Radar**: Leaflet dark map with 300 live OpenSky flights, heading-rotated markers, click popups (callsign/country/alt/speed/heading/ICAO), locate-from-list, 30s auto-refresh, callsign filter.
 - **Customize**: add/remove your own RSS feeds (persisted), toggle news categories on/off, browse all built-in sources, export news as JSON.
+- **Dashboard v2 (experimental)**: `/demos/dash/` — tile dashboard where every tile opens a dedicated page. Full split-pane news reader with unread state, TTS, font sizing and **full article-text extraction** (`/article/extract`, trafilatura + JSON-LD + DOM fallback), six phosphor themes, theme-aware Leaflet flight map.
 - **Retro Aesthetics**: CRT scanlines, green-on-black monospace UI, ticker marquee, CLI (`goto`, `search`, `addfeed`, `refresh`, `help`).
 
 ## 🛠️ Tech Stack
@@ -17,7 +18,7 @@ A high-fidelity, 1980s-style terminal dashboard for global news, finance, weathe
 - **Backend**: FastAPI (Python) — `backend.py`
 - **Frontend**: HTML5, CSS3, JavaScript — `frontend/index.html` (+ `globe-data.js`)
 - **Visualization**: Chart.js 4 + zoom plugin (finance), D3.js (world), Leaflet (planes)
-- **Data**: Yahoo Finance, ESPN scoreboard API, OpenSky Network, Open-Meteo, USGS, 122 global RSS feeds
+- **Data**: Yahoo Finance, ESPN scoreboard API, OpenSky Network, Open-Meteo, USGS, 122 global RSS feeds, trafilatura article extraction
 
 ## 💻 Setup & Installation
 

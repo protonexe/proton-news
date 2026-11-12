@@ -94,7 +94,11 @@
     const t=setTimeout(()=>ctrl.abort(),ms||14000);
     try{
       const r=await fetch(url,{signal:ctrl.signal});
-      if(!r.ok)throw new Error("HTTP "+r.status);
+      if(!r.ok){
+        let detail="HTTP "+r.status;
+        try{const j=await r.json();if(j&&j.detail)detail=String(j.detail);}catch(e){}
+        throw new Error(detail);
+      }
       return await r.json();
     }finally{clearTimeout(t);}
   }

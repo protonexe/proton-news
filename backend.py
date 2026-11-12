@@ -1027,6 +1027,308 @@ def get_planes_global(limit: int = 300, lamin: float = None, lamax: float = None
         raise HTTPException(status_code=502, detail=f"OpenSky fetch failed: {exc}")
 
 
+# ---------------------------------------------------------------- article text
+# /article/extract pulls the full readable body out of the publisher page so the
+# dash reader can show the actual story instead of only the RSS summary.
+_ARTICLE_CACHE: dict = {}
+_ARTICLE_TTL = 6 * 3600.0
+_ARTICLE_MAX = 300
+
+_UA_ARTICLE = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+_BOILER_RE = re.compile(
+    r"(subscribe|sign up|newsletter|cookies?|privacy policy|terms of (use|service)|"
+    r"all rights reserved|advertis(e|ement)|follow us|share (this|on)|read more|"
+    r"click here|download (the|our) app|©|copyright|support our journalism|"
+    r"become a member|already a subscriber|get the latest|stay (up to date|informed)|"
+    r"related (articles?|stories)|photo(graph)? (by|credit)|getty images|"
+    r"see more of our coverage|your search results|click to share|copy link|"
+    r"email to a friend|skip advert|recommended (for you|stories)|most popular|"
+    r"read next|you may also like|listen to (this|the) article|"
+    r"this (article|story) (was|has been) originally)",
+    re.I,
+)
+
+
+def _article_meta(html_text: str) -> dict:
+    """Pull og/meta tags regardless of attribute order."""
+    out: dict = {}
+    for tag in re.findall(r"<meta\b[^>]*>", html_text or "", re.I):
+        attrs = dict(
+            (k.lower(), v)
+            for k, v in re.findall(r'([\w:-]+)\s*=\s*"([^"]*)"', tag)
+        )
+        attrs.update(
+            dict((k.lower(), v) for k, v in re.findall(r"([\w:-]+)\s*=\s*'([^']*)'", tag))
+        )
+        key = attrs.get("property") or attrs.get("name") or attrs.get("itemprop")
+        val = attrs.get("content")
+        if key and val:
+            out.setdefault(key.lower(), unescape(val).strip())
+    return out
+
+
+def _article_paras(text: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for chunk in re.split(r"\n+", text or ""):
+        p = re.sub(r"\s+", " ", chunk).strip()
+        if len(p) < 45 or len(p.split()) < 7:
+            continue
+        # drop short boilerplate lines only; long prose that happens to mention
+        # "subscribe" is real copy and must survive
+        if len(p) < 170 and _BOILER_RE.search(p):
+            continue
+        key = re.sub(r"[^a-z0-9 ]", "", p.lower())[:120]
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
+
+
+def _jsonld_body(html_text: str) -> str:
+    for m in re.finditer(
+        r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', html_text or "", re.S | re.I
+    ):
+        try:
+            data = json.loads(unescape(m.group(1)).strip())
+        except Exception:
+            continue
+        stack = [data]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, list):
+                stack.extend(node)
+                continue
+            if not isinstance(node, dict):
+                continue
+            if isinstance(node.get("@graph"), list):
+                stack.extend(node["@graph"])
+            body = node.get("articleBody")
+            if isinstance(body, str) and len(body) > 400:
+                return body
+    return ""
+
+
+def _heuristic_body(html_text: str) -> list[str]:
+    """Fallback reader: score containers by prose length minus link density."""
+    try:
+        from lxml import html as LH
+    except Exception:
+        return []
+    try:
+        doc = LH.fromstring(html_text)
+    except Exception:
+        return []
+    for bad in doc.xpath("//script|//style|//noscript|//nav|//footer|//aside|//form|//iframe|//svg"):
+        parent = bad.getparent()
+        if parent is not None:
+            parent.remove(bad)
+    best = None
+    best_score = 0.0
+    for el in doc.xpath("//article|//main|//*[@role='main']|//section|//div"):
+        ps = el.xpath(".//p")
+        if len(ps) < 2:
+            continue
+        prose = sum(len(re.sub(r"\s+", " ", "".join(p.itertext())).strip()) for p in ps)
+        link_chars = sum(len("".join(a.itertext())) for a in el.xpath(".//a"))
+        score = prose - link_chars * 1.6
+        if score > best_score:
+            best_score, best = score, el
+    if best is None:
+        return []
+    raw = "\n".join(
+        re.sub(r"\s+", " ", "".join(p.itertext())).strip() for p in best.xpath(".//p")
+    )
+    return _article_paras(raw)
+
+
+def _fetch_article_html(url: str) -> tuple[str, str]:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _UA_ARTICLE,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=18) as resp:
+        raw = resp.read(3_000_000)
+        charset = resp.headers.get_content_charset()
+        final = resp.geturl()
+    return _decode_html(raw, charset), final
+
+
+def _decode_html(raw: bytes, charset: str | None) -> str:
+    """Honour header charset, then <meta charset>, then sniff. Feeds are global,
+    so a hard utf-8 default mangles curly quotes on older CMS output."""
+    if charset:
+        try:
+            return raw.decode(charset, errors="replace")
+        except LookupError:
+            pass
+    head = raw[:8192].decode("ascii", errors="ignore")
+    m = re.search(r'<meta[^>]+charset\s*=\s*["\']?([\w-]+)', head, re.I)
+    if m:
+        try:
+            return raw.decode(m.group(1), errors="replace")
+        except LookupError:
+            pass
+    try:
+        from charset_normalizer import from_bytes
+
+        best = from_bytes(raw).best()
+        if best is not None:
+            return str(best)
+    except Exception:
+        pass
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
+
+
+def _extract_article(url: str) -> dict:
+    html_text, final_url = _fetch_article_html(url)
+    meta = _article_meta(html_text)
+    host = urlparse(final_url).hostname or ""
+    site = (meta.get("og:site_name") or host.replace("www.", "")).strip()
+
+    candidates: list[tuple[str, list[str]]] = []
+
+    # 1) trafilatura — best general-purpose reader
+    try:
+        import trafilatura
+
+        raw = trafilatura.extract(
+            html_text,
+            url=final_url,
+            output_format="json",
+            include_comments=False,
+            include_tables=False,
+            favor_recall=True,
+            with_metadata=True,
+        )
+        if raw:
+            payload = json.loads(raw)
+            text = payload.get("text") or ""
+            paras = _article_paras(text)
+            if paras:
+                candidates.append(("trafilatura", paras))
+                meta.setdefault("title", payload.get("title") or "")
+                meta.setdefault("author", payload.get("author") or "")
+                meta.setdefault("date", payload.get("date") or "")
+                meta.setdefault("image", payload.get("image") or "")
+                site = (payload.get("sitename") or site).strip()
+    except Exception:
+        pass
+
+    # 2) structured data articleBody
+    ld = _jsonld_body(html_text)
+    if ld:
+        paras = _article_paras(ld)
+        if paras:
+            candidates.append(("json-ld", paras))
+
+    # 3) DOM heuristic
+    heur = _heuristic_body(html_text)
+    if heur:
+        candidates.append(("heuristic", heur))
+
+    if not candidates:
+        return {}
+    # trafilatura is the cleanest source. Use it whenever it produced a real
+    # body; otherwise fall back to structured data / the DOM heuristic.
+    rank = {"trafilatura": 0, "json-ld": 1, "heuristic": 2}
+    substantial = [c for c in candidates if sum(len(p) for p in c[1]) >= 700]
+    extractor, paragraphs = min(substantial or candidates, key=lambda c: rank.get(c[0], 9))
+
+    title = (meta.get("og:title") or meta.get("twitter:title") or meta.get("title") or "").strip()
+    if not title:
+        m = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.S | re.I)
+        title = unescape(m.group(1)).strip() if m else ""
+    if site and title.lower().endswith(site.lower()):
+        title = title[: -len(site)].strip(" -|·—")
+
+    byline = (
+        meta.get("author")
+        or meta.get("article:author")
+        or meta.get("twitter:creator")
+        or ""
+    ).strip()
+
+    # Drop a leading paragraph that is just the headline repeated, plus any
+    # near-identical duplicate of the title pulled in by recall mode.
+    tnorm = re.sub(r"[^a-z0-9 ]", "", title.lower()).strip()
+    if tnorm:
+        paragraphs = [
+            p
+            for p in paragraphs
+            if not re.sub(r"[^a-z0-9 ]", "", p.lower()).strip().startswith(tnorm[:70])
+        ]
+    if not paragraphs:
+        return {}
+    published = (
+        meta.get("article:published_time")
+        or meta.get("datepublished")
+        or meta.get("pubdate")
+        or meta.get("og:published_time")
+        or ""
+    ).strip()
+
+    return {
+        "ok": True,
+        "url": final_url,
+        "title": title,
+        "byline": byline,
+        "published": published,
+        "site": site,
+        "image": meta.get("og:image") or meta.get("twitter:image") or "",
+        "excerpt": meta.get("og:description") or meta.get("description") or "",
+        "paragraphs": paragraphs,
+        "words": sum(len(p.split()) for p in paragraphs),
+        "extractor": extractor,
+    }
+
+
+@app.get("/article/extract")
+def extract_article(url: str):
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in ("http", "https") or not host:
+        raise HTTPException(status_code=400, detail="only http(s) article urls are supported")
+    if host == "localhost" or host.endswith(".local") or host.startswith(
+        ("127.", "10.", "192.168.", "169.254.")
+    ):
+        raise HTTPException(status_code=400, detail="host not allowed")
+
+    now = time.time()
+    hit = _ARTICLE_CACHE.get(url)
+    if hit and (now - hit["ts"]) < _ARTICLE_TTL:
+        return hit["data"]
+
+    try:
+        payload = _extract_article(url)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"article fetch failed: {exc}")
+
+    if not payload or not payload.get("paragraphs"):
+        raise HTTPException(
+            status_code=422,
+            detail="no readable body found (paywall, JS-only page, or blocked crawler)",
+        )
+    if len(_ARTICLE_CACHE) > _ARTICLE_MAX:
+        oldest = sorted(_ARTICLE_CACHE, key=lambda k: _ARTICLE_CACHE[k]["ts"])[:50]
+        for k in oldest:
+            _ARTICLE_CACHE.pop(k, None)
+    _ARTICLE_CACHE[url] = {"ts": now, "data": payload}
+    return payload
+
+
 # Serve the frontend (index.html) as a real website at "/"
 # MUST be registered AFTER all API routes, otherwise it shadows them with 404
 _FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
