@@ -195,6 +195,8 @@ _YAHOO_UA = (
 SYMBOL_REGEX = r"^[A-Z0-9^=./-]{1,15}$"
 
 _NEWS_CACHE: dict = {"data": None, "ts": 0.0}
+_QUICK_CACHE: dict = {"data": None, "ts": 0.0}
+_QUICK_TTL = 300.0
 _CRYPTO_CACHE: dict = {"data": None, "ts": 0.0}
 _CRYPTO_TTL = 300.0
 _PLANES_CACHE: dict = {"data": None, "ts": 0.0}
@@ -413,6 +415,29 @@ def get_news(limit: int = None, custom_feeds: str = None, countries: str = None,
     if limit is not None:
         return data[:limit]
     return data
+
+
+@app.get("/news/quick")
+def get_news_quick(limit: int = 60):
+    """Small fast subset for the dash demos (own cache, never blocks /news)."""
+    now = time.time()
+    if _QUICK_CACHE["data"] is not None and (now - _QUICK_CACHE["ts"]) < _QUICK_TTL:
+        return _QUICK_CACHE["data"][:limit]
+    feeds = FEEDS[:60]
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        results = list(pool.map(_fetch_one, feeds))
+    stories: list[dict] = []
+    seen: set[str] = set()
+    for batch in results:
+        for s in batch:
+            if not s.get("title") or s["link"] in seen:
+                continue
+            seen.add(s["link"])
+            stories.append(s)
+    stories = _fresh_dedupe(stories)
+    _QUICK_CACHE["data"] = stories
+    _QUICK_CACHE["ts"] = now
+    return stories[:limit]
 
 
 @app.get("/news/feeds")

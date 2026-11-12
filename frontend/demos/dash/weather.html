@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // WEATHER</title>
+<link rel="stylesheet" href="dash.css"/>
+<style>
+.hero-temp{font-size:3.2rem;line-height:1;letter-spacing:-2px}
+.hero-cond{font-size:.82rem;color:var(--hi);letter-spacing:1px}
+.metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.5rem}
+.metric{border:1px solid var(--line);background:var(--panel);padding:.45rem .55rem}
+.metric .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
+.metric .v{font-size:1rem;margin-top:.15rem;font-variant-numeric:tabular-nums}
+.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.45rem}
+.fday{border:1px solid var(--line);padding:.5rem;background:var(--panel);text-align:center}
+.fday .d{font-size:.6rem;color:var(--dim);letter-spacing:1px}
+.fday .lo{font-size:.66rem;color:var(--dim)}
+.fday .hi2{font-size:.95rem}
+.hourbars{display:flex;align-items:flex-end;gap:2px;height:120px;margin-top:.6rem;border-bottom:1px solid var(--dim);padding-bottom:2px}
+.hourbars i{flex:1;background:var(--dim);position:relative;min-height:2px}
+.hourbars i.hot{background:var(--fg)}
+@media(max-width:700px){.hero-temp{font-size:2.4rem}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main class="wrap">
+  <div class="hero spread">
+    <div><h1>&gt; WEATHER // STATION</h1><p>OPEN-METEO · CURRENT · AIR QUALITY · FORECAST</p></div>
+    <div class="row">
+      <input id="city" type="text" placeholder="city e.g. Tokyo" style="max-width:200px" autocomplete="off"/>
+      <button id="go">[ LOOKUP ]</button>
+    </div>
+  </div>
+
+  <div class="chips" id="quick" style="margin-bottom:.7rem"></div>
+
+  <div class="grid">
+    <div class="panel w6" style="grid-column:span 6">
+      <div class="spread" style="align-items:flex-start">
+        <div>
+          <div class="k" id="loc">NEW YORK CITY</div>
+          <div class="hero-temp num" id="temp">--°</div>
+          <div class="hero-cond" id="cond">awaiting station...</div>
+        </div>
+        <div class="small muted" id="coords">40.71 / -74.01</div>
+      </div>
+      <div class="metricgrid" style="margin-top:.7rem">
+        <div class="metric"><div class="k">WIND</div><div class="v" id="wind">--</div></div>
+        <div class="metric"><div class="k">DIRECTION</div><div class="v" id="wdir">--</div></div>
+        <div class="metric"><div class="k">CODE</div><div class="v" id="wcode">--</div></div>
+        <div class="metric"><div class="k">AQI (US)</div><div class="v" id="aqi">--</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="grid-column:span 6">
+      <div class="spread"><h2>PARTICULATES</h2><span class="small muted" id="aqi-tag">—</span></div>
+      <div class="metricgrid">
+        <div class="metric"><div class="k">PM2.5</div><div class="v" id="pm25">--</div></div>
+        <div class="metric"><div class="k">PM10</div><div class="v" id="pm10">--</div></div>
+        <div class="metric"><div class="k">NO2</div><div class="v" id="no2">--</div></div>
+        <div class="metric"><div class="k">O3</div><div class="v" id="o3">--</div></div>
+      </div>
+      <div class="hourbars" id="bars"></div>
+      <div class="small muted" style="margin-top:.3rem">7-DAY TEMPERATURE SPREAD (LOW → HIGH)</div>
+    </div>
+
+    <div class="panel w12" style="grid-column:span 12">
+      <div class="spread"><h2>FORECAST</h2><span class="small muted" id="fc-note">—</span></div>
+      <div class="fc" id="forecast"></div>
+    </div>
+  </div>
+</main>
+<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+
+<script src="dash.js"></script>
+<script>
+PN.mountHeader("weather.html");
+
+const QUICK=[["NEW YORK",40.71,-74.01],["LONDON",51.51,-0.13],["TOKYO",35.68,139.69],["SYDNEY",-33.87,151.21],["BERLIN",52.52,13.40],["SÃO PAULO",-23.55,-46.63]];
+document.getElementById("quick").innerHTML=QUICK.map((q,i)=>
+  `<button data-i="${i}" class="${i===0?"act":""}">${q[0]}</button>`).join("");
+document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#quick button").forEach(x=>x.classList.toggle("act",x===b));
+  const q=QUICK[Number(b.dataset.i)];
+  fetchWeather(q[0],q[1],q[2]);
+});
+
+const CODES={0:"clear sky",1:"mainly clear",2:"partly cloudy",3:"overcast",45:"fog",48:"rime fog",
+  51:"light drizzle",53:"drizzle",55:"dense drizzle",61:"light rain",63:"rain",65:"heavy rain",
+  71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"showers",82:"violent showers",
+  95:"thunderstorm",96:"thunder + hail",99:"severe thunder"};
+
+function cond(code){return CODES[code]||("code "+code);}
+
+function setText(id,v){const n=document.getElementById(id);if(n)n.textContent=v;}
+function setHTML(id,v){const n=document.getElementById(id);if(n)n.innerHTML=v;}
+
+async function fetchWeather(name,lat,lon){
+  setText("loc",String(name).toUpperCase());
+  setText("temp","--°");setText("cond","contacting station...");
+  if(lat==null||lon==null)return;
+  document.getElementById("coords").textContent=Number(lat).toFixed(2)+" / "+Number(lon).toFixed(2);
+  try{
+    const d=await PN.fetchJSON(`/weather/full?lat=${lat}&lon=${lon}`,16000);
+    const c=(d.forecast||{}).current_weather||{};
+    const a=(d.aqi||{}).current||{};
+    const dai=(d.forecast||{}).daily||{};
+    setText("temp",(c.temperature??"--")+"°");
+    setText("cond",cond(c.weathercode).toUpperCase());
+    setText("wind",(c.windspeed??"--")+" km/h");
+    setText("wdir",(c.winddirection??"--")+"°");
+    setText("wcode",c.weathercode??"--");
+    setText("aqi",a.us_aqi??"--");
+    setText("pm25",a.pm2_5??"--");setText("pm10",a.pm10??"--");
+    setText("no2",a.nitrogen_dioxide??"--");setText("o3",a.ozone??"--");
+    const aqi=Number(a.us_aqi);
+    setText("aqi-tag",isFinite(aqi)?(aqi<=50?"GOOD":aqi<=100?"MODERATE":aqi<=150?"UNHEALTHY (SENSITIVE)":"UNHEALTHY"):"—");
+    const days=(dai.time||[]).slice(0,7);
+    setText("fc-note",days.length?days[0]+" → "+days[days.length-1]:"no forecast");
+    setHTML("forecast",days.map((t,i)=>{
+      const dt=new Date(t+"T12:00:00");
+      return `<div class="fday">
+        <div class="d">${dt.toLocaleDateString([], {weekday:"short"}).toUpperCase()} ${t.slice(5)}</div>
+        <div class="hi2 num">${dai.temperature_2m_max?.[i]??"--"}°</div>
+        <div class="lo num">low ${dai.temperature_2m_min?.[i]??"--"}°</div>
+        <div class="d" style="margin-top:.2rem">UV ${dai.uv_index_max?.[i]??"--"}</div>
+      </div>`;
+    }).join("")||'<p class="muted small">forecast unavailable</p>');
+    // bars: normalize lows/highs over the week
+    const his=(dai.temperature_2m_max||[]).slice(0,7);
+    const los=(dai.temperature_2m_min||[]).slice(0,7);
+    if(his.length){
+      const min=Math.min(...los),max=Math.max(...his),span=max-min||1;
+      setHTML("bars",his.map((h,i)=>{
+        const pct=Math.max(8,Math.round(((h-min)/span)*100));
+        return `<i class="${i===0?"hot":""}" style="height:${pct}%" title="${his[i]}° / ${los[i]}°"></i>`;
+      }).join(""));
+    }
+  }catch(e){
+    setText("cond","station uplink failed — retry");
+  }
+}
+
+document.getElementById("go").onclick=async()=>{
+  const q=document.getElementById("city").value.trim();
+  if(!q){return;}
+  try{
+    const g=await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`)).json();
+    if(!g.results||!g.results.length){setText("cond","location not found");return;}
+    const r=g.results[0];
+    document.querySelectorAll("#quick button").forEach(x=>x.classList.remove("act"));
+    fetchWeather(r.name,r.latitude,r.longitude);
+  }catch(e){PN.toast("geocoder unavailable");}
+};
+document.getElementById("city").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("go").click();});
+
+fetchWeather("NEW YORK",40.71,-74.01);
+</script>
+</body>
+</html>

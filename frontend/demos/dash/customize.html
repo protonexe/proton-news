@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // CUSTOMIZE</title>
+<link rel="stylesheet" href="dash.css"/>
+<style>
+.themegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.55rem}
+.thcard{border:1px solid var(--line);background:var(--panel);padding:.55rem;cursor:pointer;text-align:left}
+.thcard:hover{border-color:var(--fg)}
+.thcard.act{border-color:var(--fg);background:var(--panel2)}
+.thcard .sw{height:26px;border:1px solid rgba(255,255,255,.25);margin-bottom:.4rem}
+.thcard .nm{font-size:.7rem;letter-spacing:1px}
+.thcard .hx{font-size:.58rem;color:var(--dim);letter-spacing:1px}
+.catrow{display:grid;grid-template-columns:1fr 44px;gap:.5rem;padding:.28rem .1rem;border-bottom:1px dashed var(--line);font-size:.76rem}
+.catrow .n{text-align:right;color:var(--dim)}
+details{border-bottom:1px dashed var(--line);padding:.25rem 0}
+summary{cursor:pointer;font-size:.76rem;padding:.2rem 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+ ";color:var(--dim)}
+details[open] summary::before{content:"− "}
+details .fl{font-size:.64rem;color:var(--dim);line-height:1.6;padding:.2rem 0 .4rem .9rem;word-break:break-all}
+.btnrow{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem}
+@media(max-width:800px){.grid>.panel{grid-column:span 12!important}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main class="wrap">
+  <div class="hero spread">
+    <div><h1>&gt; CUSTOMIZE // PREFERENCES</h1><p>THEMES · FEED MANIFEST · LOCAL STATE</p></div>
+    <div class="small muted" id="saved">—</div>
+  </div>
+
+  <div class="grid">
+    <div class="panel" style="grid-column:span 7">
+      <h2>PHOSPHOR / THEME</h2>
+      <p class="small muted" style="margin:.1rem 0 .6rem;line-height:1.5">
+        Six palettes. Selection is stored per browser and applied to every dash page, including the reader.
+      </p>
+      <div class="themegrid" id="themes"></div>
+      <div class="small muted" id="thname" style="margin-top:.55rem">current: P1 GREEN</div>
+    </div>
+
+    <div class="panel" style="grid-column:span 5">
+      <h2>LOCAL STATE</h2>
+      <div class="catrow"><span>READ STORIES</span><span class="n" id="read-count">0</span></div>
+      <div class="catrow"><span>THEME</span><span class="n" id="theme-state">green</span></div>
+      <div class="catrow"><span>READER FONT</span><span class="n" id="fs-state">14px</span></div>
+      <div class="catrow"><span>DASHBOARD BUILD</span><span class="n">v2 demo</span></div>
+      <div class="btnrow">
+        <button id="clear-read">[ CLEAR READ HISTORY ]</button>
+        <button id="open-reader">[ OPEN READER ]</button>
+      </div>
+      <div class="small muted" style="margin-top:.7rem;line-height:1.6">
+        Reader remembers what you opened and your font size. Themes live in localStorage under
+        <span class="hi">pn_dash_theme</span>.
+      </div>
+    </div>
+
+    <div class="panel" style="grid-column:span 12">
+      <div class="spread" style="margin-bottom:.4rem">
+        <h2 style="margin:0">FEED MANIFEST</h2>
+        <span class="small muted" id="feeds-meta">reading…</span>
+      </div>
+      <div id="cats"><div class="muted small" style="padding:.4rem">loading…</div></div>
+    </div>
+  </div>
+</main>
+<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+
+<script src="dash.js"></script>
+<script>
+PN.mountHeader("customize.html");
+
+const KEY_READ="pn_dash_read", KEY_FS="pn_dash_fs";
+function refreshState(){
+  let read=[];
+  try{read=JSON.parse(localStorage.getItem(KEY_READ)||"[]");}catch(e){}
+  document.getElementById("read-count").textContent=read.length;
+  const cur=PN.current();
+  document.getElementById("theme-state").textContent=cur;
+  document.getElementById("thname").textContent="current: "+PN.themeById(cur).name;
+  document.getElementById("fs-state").textContent=(localStorage.getItem(KEY_FS)||14)+"px";
+  document.querySelectorAll(".thcard").forEach(n=>n.classList.toggle("act",n.dataset.t===cur));
+  document.getElementById("saved").textContent="saved locally · "+new Date().toLocaleTimeString();
+}
+
+document.getElementById("themes").innerHTML=PN.Themes.map(t=>
+  `<button class="thcard" data-t="${t.id}">
+     <span class="sw" style="background:${t.hex}"></span>
+     <div class="nm">${t.name}</div><div class="hx">${t.hex}</div>
+   </button>`).join("");
+document.querySelectorAll(".thcard").forEach(b=>b.onclick=()=>{
+  PN.applyTheme(b.dataset.t);refreshState();
+});
+
+document.getElementById("clear-read").onclick=()=>{
+  localStorage.removeItem(KEY_READ);refreshState();PN.toast("read history cleared");
+};
+document.getElementById("open-reader").onclick=()=>{location.href="news.html";};
+
+function paintFeeds(d){
+  document.getElementById("feeds-meta").textContent=d.total+" feeds · "+d.countries.length+" countries · "+Object.keys(d.by_category).length+" categories";
+  document.getElementById("cats").innerHTML=Object.entries(d.by_category).map(([c,fs])=>
+    `<details><summary>${PN.esc(c)} <span class="muted">(${fs.length})</span></summary>
+      <div class="fl">${fs.map(f=>"• "+PN.esc(f.country)+" — "+PN.esc(f.url)).join("<br/>")}</div>
+    </details>`).join("");
+}
+
+PN.fetchJSON("/news/feeds",14000).then(paintFeeds).catch(()=>{
+  document.getElementById("cats").innerHTML='<div class="muted small" style="padding:.4rem">manifest unavailable.</div>';
+});
+
+refreshState();
+</script>
+</body>
+</html>

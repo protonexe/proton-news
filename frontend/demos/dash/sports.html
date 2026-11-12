@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // SPORTS</title>
+<link rel="stylesheet" href="dash.css"/>
+<style>
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:.7rem}
+.scard{border:1px solid var(--line);border-left:2px solid var(--dim);background:var(--panel);padding:.6rem .7rem;transition:border-color .12s,transform .12s}
+.scard:hover{border-color:var(--fg);transform:translateY(-1px)}
+.scard.live{border-left-color:var(--red)}
+.st{padding:.32rem 0;border-bottom:1px dashed var(--line)}
+.st:last-of-type{border-bottom:none}
+.strow{display:flex;gap:.45rem;align-items:center}
+.strow img{width:22px;height:22px;object-fit:contain;flex:0 0 auto}
+.strow .ab{font-weight:bold;font-size:.85rem}
+.strow .nm{font-size:.68rem;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strow .rec{font-size:.6rem;color:var(--dim);margin-left:.2rem}
+.strow .sc{margin-left:auto;font-size:1rem;font-variant-numeric:tabular-nums}
+.strow.win .sc{color:var(--hi);font-weight:bold}
+.sfoot{font-size:.6rem;color:var(--dim);margin-top:.25rem;line-height:1.4}
+.slinks{margin-top:.3rem;display:flex;gap:.6rem;font-size:.66rem}
+.slinks a{text-decoration:underline}
+.tag.red{color:var(--red);border-color:var(--red)}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;animation:p 1.2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.2}}
+#stand-table td img{width:20px;height:20px;object-fit:contain;vertical-align:-4px;margin-right:.3rem}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main class="wrap">
+  <div class="hero spread">
+    <div><h1>&gt; SPORTS // SCOREBOARD</h1><p>LIVE + FINALS · ESPN FEED · PER-GAME LINKS</p></div>
+    <div class="row"><span class="small muted" id="sp-count">-- events</span></div>
+  </div>
+
+  <div class="panel" style="margin-bottom:.7rem">
+    <div class="spread">
+      <div class="chips" id="leagues"></div>
+      <div class="row">
+        <label class="small muted row" style="gap:.3rem"><input type="checkbox" id="live-only"/> LIVE ONLY</label>
+        <button id="refresh">[ REFRESH ]</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards" id="cards"><div class="panel muted">syncing scoreboard...</div></div>
+
+  <div class="panel" style="margin-top:.8rem">
+    <div class="spread">
+      <h2>STANDINGS</h2>
+      <div class="row">
+        <select id="st-league">
+          <option value="basketball|nba">NBA</option>
+          <option value="football|nfl">NFL</option>
+          <option value="baseball|mlb">MLB</option>
+          <option value="hockey|nhl">NHL</option>
+          <option value="soccer|eng.1">PREMIER LEAGUE</option>
+          <option value="soccer|esp.1">LA LIGA</option>
+          <option value="soccer|uefa.champions">CHAMPIONS LEAGUE</option>
+        </select>
+        <button id="st-load">[ LOAD TABLE ]</button>
+      </div>
+    </div>
+    <div id="stand-table" class="scrollx" style="margin-top:.6rem"><p class="muted small">pick a league and load.</p></div>
+  </div>
+</main>
+<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+
+<script src="dash.js"></script>
+<script>
+PN.mountHeader("sports.html");
+
+const LEAGUES=[["ALL","ALL"],["nba","NBA"],["nfl","NFL"],["mlb","MLB"],["nhl","NHL"],["eng.1","EPL"],["esp.1","LA LIGA"],["uefa.champions","UCL"]];
+let league="ALL", liveOnly=false, cache=[];
+
+document.getElementById("leagues").innerHTML=LEAGUES.map(([v,l],i)=>
+  `<button data-l="${v}" class="${i===0?"act":""}">${l}</button>`).join("");
+document.querySelectorAll("#leagues button").forEach(b=>b.onclick=()=>{
+  league=b.dataset.l;
+  document.querySelectorAll("#leagues button").forEach(x=>x.classList.toggle("act",x===b));
+  load();
+});
+document.getElementById("live-only").onchange=e=>{liveOnly=e.target.checked;render();};
+document.getElementById("refresh").onclick=load;
+
+function teamRow(t,win){
+  if(!t)return "";
+  return `<div class="st"><div class="strow ${win?"win":""}">
+    ${t.logo?`<img src="${PN.esc(t.logo)}" alt="" loading="lazy"/>`:""}
+    <span class="ab">${PN.esc(t.abbr||"")}</span>
+    <span class="nm">${PN.esc(t.name||"")}${t.record?` <span class="rec">${PN.esc(t.record)}</span>`:""}</span>
+    <span class="sc">${PN.esc(t.score??"")}</span>
+  </div></div>`;
+}
+
+function card(e){
+  const live=(e.state||"")==="in", post=(e.state||"")==="post";
+  const a=e.away||{},h=e.home||{};
+  const when=e.time?new Date(e.time).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  return `<div class="scard ${live?"live":""}">
+    <div class="row" style="justify-content:space-between;margin-bottom:.25rem">
+      <span class="tag">${PN.esc(e.league_short||e.league||"GAME")}</span>
+      ${live?'<span class="tag red"><span class="pulse"></span> LIVE</span>':post?'<span class="tag">FINAL</span>':`<span class="tag hot">${PN.esc(when)}</span>`}
+    </div>
+    ${teamRow(a,a.winner)}
+    ${teamRow(h,h.winner)}
+    <div class="sfoot">${PN.esc(e.detail||e.status||"")}${e.venue?" · "+PN.esc(e.venue):""}${e.broadcast?" · "+PN.esc(e.broadcast):""}</div>
+    <div class="slinks">
+      <a href="${PN.esc(e.url||("https://www.espn.com/search/_/q/"+encodeURIComponent((a.abbr||"")+" "+(h.abbr||""))))}" target="_blank" rel="noopener">>> live stats</a>
+      ${e.boxscore?`<a href="${PN.esc(e.boxscore)}" target="_blank" rel="noopener">>> box score</a>`:""}
+    </div>
+  </div>`;
+}
+
+function render(){
+  const list=liveOnly?cache.filter(e=>(e.state||"")==="in"):cache;
+  document.getElementById("sp-count").textContent=list.length+" events";
+  document.getElementById("cards").innerHTML=list.length?list.map(card).join(""):
+    '<div class="panel muted">no events for this filter. ESPN may have nothing scheduled right now.</div>';
+}
+
+async function load(){
+  document.getElementById("cards").innerHTML='<div class="panel muted">syncing scoreboard...</div>';
+  try{
+    const url=league==="ALL"?"/sports/scoreboard":`/sports/scoreboard?league=${encodeURIComponent(league)}`;
+    const d=await PN.fetchJSON(url,16000);
+    if(!Array.isArray(d))throw new Error("bad payload");
+    cache=d;render();
+  }catch(e){
+    cache=PN.mockMatches.map(m=>({league_short:m.league,state:m.live?"in":"post",detail:m.q,
+      away:{abbr:m.a,score:m.sa,winner:m.sa>m.sb},home:{abbr:m.b,score:m.sb,winner:m.sb>m.sa},
+      venue:"demo data"}));
+    render();
+  }
+}
+
+document.getElementById("st-load").onclick=async()=>{
+  const el=document.getElementById("stand-table");
+  const [sport,lg]=document.getElementById("st-league").value.split("|");
+  el.innerHTML='<p class="muted small">loading table...</p>';
+  try{
+    const d=await PN.fetchJSON(`/sports/standings?sport=${encodeURIComponent(sport)}&league=${encodeURIComponent(lg)}`,18000);
+    if(!d.groups||!d.groups.length)throw new Error("no groups");
+    el.innerHTML=d.groups.map(g=>`
+      <h3 class="small hi" style="margin:.5rem 0 .2rem;letter-spacing:1px">${PN.esc(g.name)}</h3>
+      <table class="tbl"><tr><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>T</th><th>PTS</th><th>PCT</th><th>GB</th><th>STRK</th></tr>
+      ${g.rows.map((r,i)=>`<tr>
+        <td class="muted">${r.rank||i+1}</td>
+        <td>${r.logo?`<img src="${PN.esc(r.logo)}" alt="" loading="lazy"/>`:""}<b>${PN.esc(r.abbr)}</b> <span class="muted">${PN.esc(r.team)}</span></td>
+        <td>${PN.esc(r.w)}</td><td>${PN.esc(r.l)}</td><td>${PN.esc(r.t||"—")}</td>
+        <td>${PN.esc(r.pts||"—")}</td><td>${PN.esc(r.pct||"—")}</td><td>${PN.esc(r.gb||"—")}</td><td>${PN.esc(r.streak||"—")}</td>
+      </tr>`).join("")}</table>`).join("");
+  }catch(e){
+    el.innerHTML='<p class="muted small">standings unavailable for this league right now.</p>';
+  }
+};
+
+load();
+</script>
+</body>
+</html>

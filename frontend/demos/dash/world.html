@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // WORLD COVERAGE</title>
+<link rel="stylesheet" href="dash.css"/>
+<style>
+.covrow{display:grid;grid-template-columns:1fr minmax(80px,180px) 44px;gap:.5rem;align-items:center;padding:.3rem .35rem;border-bottom:1px dashed var(--line);cursor:pointer;font-size:.78rem}
+.covrow:hover{background:var(--sel)}
+.covrow .bar{height:10px;background:var(--fg);opacity:.8}
+.covrow .n{text-align:right;font-variant-numeric:tabular-nums}
+.regrow{display:grid;grid-template-columns:1fr 40px;gap:.5rem;padding:.25rem .1rem;font-size:.74rem;border-bottom:1px dashed var(--line)}
+.regrow .n{text-align:right;color:var(--dim)}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:.7rem}
+.stat{border:1px solid var(--line);background:var(--panel);padding:.5rem .6rem}
+.stat .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
+.stat .v{font-size:1.15rem;margin-top:.1rem;font-variant-numeric:tabular-nums}
+@media(max-width:800px){.grid>.panel{grid-column:span 12!important}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main class="wrap">
+  <div class="hero spread">
+    <div><h1>&gt; WORLD // COVERAGE</h1><p>STORY DISTRIBUTION BY COUNTRY · CLICK A ROW TO FILTER THE READER</p></div>
+    <div class="small muted" id="sync">counting wire...</div>
+  </div>
+
+  <div class="statrow">
+    <div class="stat"><div class="k">COUNTRIES</div><div class="v num" id="s-countries">--</div></div>
+    <div class="stat"><div class="k">STORIES</div><div class="v num" id="s-stories">--</div></div>
+    <div class="stat"><div class="k">TOP COUNTRY</div><div class="v" id="s-top" style="font-size:.9rem">--</div></div>
+    <div class="stat"><div class="k">REGIONS</div><div class="v num" id="s-regions">--</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel" style="grid-column:span 4">
+      <h2>REGION ROLLUP</h2>
+      <div id="regions"><div class="muted small">loading…</div></div>
+    </div>
+    <div class="panel" style="grid-column:span 8">
+      <div class="spread" style="margin-bottom:.4rem">
+        <h2 style="margin:0">COUNTRY INDEX</h2>
+        <input id="q" type="text" placeholder="filter country..." style="max-width:200px" autocomplete="off"/>
+      </div>
+      <div class="covrow" style="cursor:default;border-bottom:1px solid var(--dim);color:var(--dim);font-size:.6rem;letter-spacing:1px">
+        <span>COUNTRY</span><span>SHARE</span><span class="n">STORIES</span>
+      </div>
+      <div id="countries"><div class="muted small" style="padding:.5rem">loading…</div></div>
+    </div>
+  </div>
+</main>
+<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+
+<script src="dash.js"></script>
+<script>
+PN.mountHeader("world.html");
+
+let rows=[], filter="";
+
+document.getElementById("q").addEventListener("input",e=>{filter=e.target.value.toLowerCase();paint();});
+
+function paint(){
+  const el=document.getElementById("countries");
+  const vis=rows.filter(r=>(r.country||"").toLowerCase().includes(filter));
+  const max=Math.max(...vis.map(r=>r.stories),1);
+  el.innerHTML=vis.map(r=>
+    `<div class="covrow" data-c="${PN.esc(r.country)}">
+      <span>${PN.esc(r.country)}</span>
+      <span><span class="bar" style="display:block;width:${Math.max(3,Math.round(r.stories/max*100))}%"></span></span>
+      <span class="n">${r.stories}</span>
+    </div>`).join("")||'<div class="muted small" style="padding:.6rem">no matches.</div>';
+  el.querySelectorAll(".covrow").forEach(n=>n.onclick=()=>{
+    location.href="news.html?country="+encodeURIComponent(n.dataset.c);
+  });
+}
+
+(async()=>{
+  try{
+    const d=await PN.fetchJSON("/news/countries",14000);
+    rows=d;
+    const total=d.reduce((a,b)=>a+b.stories,0);
+    document.getElementById("s-countries").textContent=d.length;
+    document.getElementById("s-stories").textContent=total;
+    document.getElementById("s-top").textContent=d.length?d[0].country+" ("+d[0].stories+")":"--";
+    document.getElementById("sync").textContent="snapshot "+new Date().toLocaleTimeString();
+    paint();
+  }catch(e){
+    document.getElementById("countries").innerHTML='<div class="muted small" style="padding:.6rem">coverage endpoint unavailable.</div>';
+  }
+})();
+
+/* region rollup from the story stream */
+PN.loadStories().then(d=>{
+  const reg={};
+  d.forEach(s=>{const c=s.category||"UNKNOWN";reg[c]=(reg[c]||0)+1;});
+  document.getElementById("s-regions").textContent=Object.keys(reg).length;
+  document.getElementById("regions").innerHTML=Object.entries(reg).sort((a,b)=>b[1]-a[1]).map(([c,n])=>
+    `<div class="regrow"><span>${PN.esc(c)}</span><span class="n">${n}</span></div>`).join("")||'<div class="muted small">no data</div>';
+});
+</script>
+</body>
+</html>

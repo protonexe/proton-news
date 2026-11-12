@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // AIRSPACE</title>
+<link rel="stylesheet" href="dash.css"/>
+<style>
+.stats4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:.7rem}
+.stat{border:1px solid var(--line);background:var(--panel);padding:.5rem .6rem}
+.stat .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
+.stat .v{font-size:1.15rem;margin-top:.1rem;font-variant-numeric:tabular-nums}
+.mapbox{position:relative;height:300px;border:1px solid var(--dim);overflow:hidden;
+  background:linear-gradient(var(--line) 1px,transparent 1px) 0 0/100% 10%,
+             linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/5% 100%,
+             radial-gradient(circle at 40% 45%,var(--sel),transparent 60%)}
+.mapbox i{position:absolute;width:3px;height:3px;background:var(--hi);border-radius:50%;box-shadow:0 0 6px var(--fg)}
+.mapbox i.g{background:var(--dim);box-shadow:none}
+.mapbox i.r{background:var(--red);box-shadow:0 0 6px var(--red)}
+.maplegend{position:absolute;left:.5rem;bottom:.4rem;font-size:.58rem;color:var(--dim);letter-spacing:1px}
+.flt{font-size:.72rem}
+.pill{font-size:.56rem;border:1px solid var(--dim);color:var(--dim);padding:0 .25rem;letter-spacing:1px}
+.pill.air{color:var(--fg);border-color:var(--fg)}
+.pill.gnd{color:var(--amber);border-color:var(--amber)}
+@media(max-width:700px){.mapbox{height:220px}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main class="wrap">
+  <div class="hero spread">
+    <div><h1>&gt; AIRSPACE // OPENSKY</h1><p>LIVE ADS-B SNAPSHOT · ALTITUDE + SPEED FILTERS</p></div>
+    <div class="row"><span class="small muted" id="src">opensky network</span><button id="refresh">[ REFRESH ]</button></div>
+  </div>
+
+  <div class="stats4">
+    <div class="stat"><div class="k">TRACKED</div><div class="v num" id="s-total">--</div></div>
+    <div class="stat"><div class="k">AIRBORNE</div><div class="v num" id="s-air">--</div></div>
+    <div class="stat"><div class="k">HIGHEST</div><div class="v num" id="s-high">--</div></div>
+    <div class="stat"><div class="k">FASTEST</div><div class="v num" id="s-fast">--</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel" style="grid-column:span 12">
+      <div class="spread" style="margin-bottom:.5rem">
+        <h2>GLOBAL SNAPSHOT</h2>
+        <span class="small muted" id="note">synthetic positions from live lat/lon</span>
+      </div>
+      <div class="mapbox" id="map"><span class="maplegend">● AIRBORNE  ● GROUND  ● SELECTED</span></div>
+    </div>
+
+    <div class="panel" style="grid-column:span 12">
+      <div class="spread" style="margin-bottom:.5rem">
+        <div class="row">
+          <input id="q" type="text" placeholder="callsign / country / icao" style="max-width:230px" autocomplete="off"/>
+          <select id="alt">
+            <option value="0">ALL ALTITUDES</option>
+            <option value="10000">ABOVE 10,000 FT</option>
+            <option value="25000">ABOVE 25,000 FT</option>
+            <option value="35000">ABOVE 35,000 FT</option>
+          </select>
+          <span class="small muted">SORT</span>
+          <div class="chips" id="sort">
+            <button data-s="alt" class="act">ALT</button>
+            <button data-s="spd">SPEED</button>
+            <button data-s="call">CALLSIGN</button>
+          </div>
+        </div>
+        <span class="small muted" id="rows">--</span>
+      </div>
+      <div class="scrollx">
+        <table class="tbl flt" id="table">
+          <tr><th>CALLSIGN</th><th>COUNTRY</th><th>ALT</th><th>SPEED</th><th>HDG</th><th>ICAO</th><th>STATE</th></tr>
+          <tr><td colspan="7" class="muted">fetching snapshot…</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+
+<script src="dash.js"></script>
+<script>
+PN.mountHeader("planes.html");
+
+let all=[], minAlt=0, sortBy="alt", q="";
+
+document.getElementById("q").addEventListener("input",e=>{q=e.target.value.toLowerCase();paint();});
+document.getElementById("alt").onchange=e=>{minAlt=Number(e.target.value);paint();};
+document.querySelectorAll("#sort button").forEach(b=>b.onclick=()=>{
+  sortBy=b.dataset.s;
+  document.querySelectorAll("#sort button").forEach(x=>x.classList.toggle("act",x===b));
+  paint();
+});
+document.getElementById("refresh").onclick=load;
+
+function project(f){
+  const x=((Number(f.lon)+180)/360)*100;
+  const y=((90-Number(f.lat))/180)*100;
+  return [Math.min(99,Math.max(0,x)),Math.min(99,Math.max(0,y))];
+}
+
+function paint(){
+  const list=all.filter(f=>
+    (!q||((f.callsign||"")+" "+(f.country||"")+" "+(f.icao24||"")).toLowerCase().includes(q))&&
+    (f.altitude_ft||0)>=minAlt);
+  list.sort((a,b)=>{
+    if(sortBy==="spd")return (b.velocity_kts||0)-(a.velocity_kts||0);
+    if(sortBy==="call")return String(a.callsign||"").localeCompare(String(b.callsign||""));
+    return (b.altitude_ft||0)-(a.altitude_ft||0);
+  });
+  document.getElementById("rows").textContent=list.length+" in filter";
+  document.getElementById("table").innerHTML=
+    '<tr><th>CALLSIGN</th><th>COUNTRY</th><th>ALT</th><th>SPEED</th><th>HDG</th><th>ICAO</th><th>STATE</th></tr>'+
+    list.slice(0,60).map(f=>`<tr>
+      <td><b>${PN.esc(f.callsign||"—")}</b></td>
+      <td class="muted">${PN.esc(f.country||"")}</td>
+      <td class="num">${f.altitude_ft?PN.fmtNum(f.altitude_ft,0)+" ft":"—"}</td>
+      <td class="num">${f.velocity_kts?PN.fmtNum(f.velocity_kts,0)+" kt":(f.velocity_kmh?PN.fmtNum(f.velocity_kmh,0)+" km/h":"—")}</td>
+      <td class="num">${f.heading!=null?Math.round(f.heading)+"°":"—"}</td>
+      <td class="muted">${PN.esc(f.icao24||"")}</td>
+      <td><span class="pill ${f.on_ground?"gnd":"air"}">${f.on_ground?"GROUND":"AIR"}</span></td>
+    </tr>`).join("") || '<tr><td colspan="7" class="muted">no matches.</td></tr>';
+
+  const map=document.getElementById("map");
+  map.querySelectorAll("i").forEach(n=>n.remove());
+  list.filter(f=>f.lat&&f.lon).slice(0,220).forEach(f=>{
+    const [x,y]=project(f);
+    const d=document.createElement("i");
+    if(f.on_ground)d.className="g";
+    else if((f.altitude_ft||0)>38000)d.className="r";
+    d.style.left=x+"%";d.style.top=y+"%";
+    d.title=(f.callsign||"?")+" · "+(f.altitude_ft?PN.fmtNum(f.altitude_ft,0)+" ft":"ground");
+    map.appendChild(d);
+  });
+}
+
+async function load(){
+  document.getElementById("table").innerHTML='<tr><td colspan="7" class="muted">fetching snapshot…</td></tr>';
+  try{
+    const d=await PN.fetchJSON("/planes/global?limit=300",18000);
+    if(!Array.isArray(d))throw new Error("bad payload");
+    all=d.filter(f=>f.lat&&f.lon);
+    const air=all.filter(f=>!f.on_ground);
+    const high=air.slice().sort((a,b)=>(b.altitude_ft||0)-(a.altitude_ft||0))[0];
+    const fast=air.slice().sort((a,b)=>(b.velocity_kts||0)-(a.velocity_kts||0))[0];
+    document.getElementById("s-total").textContent=all.length;
+    document.getElementById("s-air").textContent=air.length;
+    document.getElementById("s-high").textContent=high?PN.fmtNum(high.altitude_ft,0)+" ft":"—";
+    document.getElementById("s-fast").textContent=fast?PN.fmtNum(fast.velocity_kts,0)+" kt":"—";
+    document.getElementById("note").textContent="opensky snapshot · positions approximate";
+    paint();
+  }catch(e){
+    document.getElementById("note").textContent="uplink failed — opensky rate limit? retry in 30s";
+    document.getElementById("table").innerHTML='<tr><td colspan="7" class="muted">opensky uplink failure. this endpoint is rate limited; hit refresh in ~30s.</td></tr>';
+    document.getElementById("s-total").textContent="—";
+    document.getElementById("s-air").textContent="—";
+    document.getElementById("s-high").textContent="—";
+    document.getElementById("s-fast").textContent="—";
+  }
+}
+
+load();
+</script>
+</body>
+</html>
