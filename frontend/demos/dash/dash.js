@@ -8,14 +8,14 @@
     {id:"magenta",name:"MAGENTA",    hex:"#ff4fd8"},
     {id:"violet", name:"ULTRAVIOLET",hex:"#a48cff"}
   ];
-  const THEME_KEY="pn_dash_theme";
+  const THEME_KEY="pn_dash_theme_v2";
   const PAGES=[
     ["index.html","DASHBOARD"],["news.html","NEWS"],["finance.html","FINANCE"],
     ["sports.html","SPORTS"],["weather.html","WEATHER"],["world.html","WORLD"],
     ["planes.html","PLANES"],["customize.html","CUSTOMIZE"]
   ];
 
-  function current(){return localStorage.getItem(THEME_KEY)||"green";}
+  function current(){return localStorage.getItem(THEME_KEY)||"mono";}
   function themeById(id){return Themes.find(t=>t.id===id)||Themes[0];}
 
   function applyTheme(id,silent){
@@ -58,7 +58,7 @@
       <a class="brand" href="index.html"><b>&gt; PROTON</b>-NEWS<small>DASHBOARD v2 // DEMO</small></a>
       <nav class="crumbs">${PAGES.map(([h,l])=>
         `<a href="${h}" class="${h===active?"act":""}">[ ${l} ]</a>`).join("")}</nav>
-      <div class="hright"><span id="clocks"></span><button id="theme-btn">[ ◐ P1 GREEN ]</button></div>`;
+      <div class="hright"><span id="clocks"></span><button id="theme-btn">[ ◐ PAPER WHITE ]</button></div>`;
     document.getElementById("theme-btn").onclick=e=>{
       e.stopPropagation();
       themePanel();
