@@ -1,3 +1,4 @@
+import calendar
 import json
 import os
 import re
@@ -39,8 +40,8 @@ app.add_middleware(
 # See frontend/globe-data.js window.__GEO__ properties.ADMIN.
 RAW_FEEDS = [
     # ---- NORTH AMERICA ----
-    {"category": "NORTH AMERICA", "country": "United States of America", "url": "http://rss.cnn.com/rss/cnn_topstories.rss"},
-    {"category": "NORTH AMERICA", "country": "United States of America", "url": "http://rss.cnn.com/rss/edition_world.rss"},
+    {"category": "NORTH AMERICA", "country": "United States of America", "url": "https://feeds.content.dowjones.io/public/rss/RSSUSNews"},
+    {"category": "NORTH AMERICA", "country": "United States of America", "url": "https://feeds.content.dowjones.io/public/rss/RSSWorldNews"},
     {"category": "NORTH AMERICA", "country": "United States of America", "url": "https://feeds.npr.org/1001/rss.xml"},
     {"category": "NORTH AMERICA", "country": "United States of America", "url": "https://moxie.foxnews.com/google-publisher/latest.xml"},
     {"category": "NORTH AMERICA", "country": "United States of America", "url": "https://www.cbsnews.com/latest/rss/main"},
@@ -184,6 +185,7 @@ for f in RAW_FEEDS:
 PER_FEED_QUOTA = 3
 MAX_WORKERS = 40
 NEWS_CACHE_TTL = 180.0
+MAX_STORY_AGE_HOURS = 24 * 14  # drop stale items (dead/frozen feeds) older than 2 weeks
 _YAHOO_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -260,6 +262,42 @@ def _fetch_bytes(url: str, timeout: int = 10) -> bytes | None:
         return None
 
 
+def _entry_ts(entry: dict) -> float:
+    """Published timestamp as epoch seconds (0 when the feed omits a date)."""
+    for key in ("published_parsed", "updated_parsed", "created_parsed"):
+        st = entry.get(key)
+        if not st:
+            continue
+        try:
+            return float(calendar.timegm(st))
+        except Exception:
+            continue
+    return 0.0
+
+
+def _fresh_dedupe(stories: list[dict]) -> list[dict]:
+    """Drop stale + duplicate headlines, newest first."""
+    now = time.time()
+    cutoff = now - MAX_STORY_AGE_HOURS * 3600
+    out: list[dict] = []
+    seen_titles: set[str] = set()
+    for s in stories:
+        ts = float(s.get("ts") or 0)
+        if ts:
+            if ts < cutoff:
+                continue
+            if ts > now + 86400:  # tolerate timezone-damaged dates
+                ts = now
+                s["ts"] = ts
+        key = re.sub(r"[^a-z0-9]", "", (s.get("title") or "").lower())[:90]
+        if key and key in seen_titles:
+            continue
+        seen_titles.add(key)
+        out.append(s)
+    out.sort(key=lambda x: float(x.get("ts") or 0), reverse=True)
+    return out
+
+
 def _fetch_one(feed: dict) -> list[dict]:
     country = feed.get("country", "")
     category = feed.get("category", "WORLD")
@@ -316,6 +354,7 @@ def _fetch_one(feed: dict) -> list[dict]:
                 "sector": _classify_sector(title, summary_raw),
                 "source": _domain(link) or _domain(url),
                 "published": str(published),
+                "ts": _entry_ts(entry),
                 "image": image,
             })
         return out
@@ -355,6 +394,8 @@ def get_news(limit: int = None, custom_feeds: str = None, countries: str = None,
                     continue
                 seen_links.add(s["link"])
                 stories.append(s)
+
+        stories = _fresh_dedupe(stories)
 
         if not custom_feeds and not countries and not sectors and not is_partial:
             _NEWS_CACHE["data"] = stories
