@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DEMO A // SPLIT-PANE TERMINAL</title>
+<link rel="stylesheet" href="demo.css"/>
+<style>
+body{overflow-x:hidden}
+.shell{display:grid;grid-template-columns:296px 1fr;min-height:100vh}
+.rail{border-right:2px solid var(--fg);padding:.9rem;display:flex;flex-direction:column;gap:.85rem;position:sticky;top:0;height:100vh;overflow:auto;background:#000;z-index:5}
+.logo{font-size:1.02rem;letter-spacing:1px}
+.logo b{color:var(--hi)}
+.logo .sub{display:block;font-size:.58rem;letter-spacing:2px;color:var(--dim);margin-top:.15rem}
+nav{display:flex;flex-direction:column;gap:.2rem}
+nav button{display:flex;justify-content:space-between;align-items:center;border:1px solid transparent;text-align:left;padding:.36rem .5rem;font-size:.78rem}
+nav button .n{color:var(--dim);font-size:.6rem}
+nav button.act{background:rgba(0,204,0,.15);border-color:var(--dim);color:var(--fg)}
+nav button.act .n{color:var(--fg)}
+.blk{border-top:1px dashed var(--line);padding-top:.55rem}
+.blk h4{margin:0 0 .35rem;font-size:.58rem;letter-spacing:2px;color:var(--dim);font-weight:400;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;font-size:.72rem;padding:.1rem 0;font-variant-numeric:tabular-nums}
+.rail-foot{margin-top:auto;font-size:.58rem;color:var(--dim);letter-spacing:1px;border-top:1px dashed var(--line);padding-top:.5rem}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:10;background:#000;border-bottom:1px solid var(--fg);display:flex;gap:.6rem;align-items:center;padding:.5rem .8rem;flex-wrap:wrap}
+.topbar .path{font-size:.78rem}
+.topbar input{background:#000;border:1px solid var(--dim);color:var(--fg);font-family:inherit;font-size:.75rem;padding:.28rem .5rem;outline:none;flex:1;min-width:110px;max-width:300px}
+.topbar input:focus{border-color:var(--fg)}
+.content{padding:.8rem;display:grid;gap:.7rem;align-content:start}
+.fin-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.fin-table th{text-align:left;font-size:.6rem;letter-spacing:1.5px;color:var(--dim);font-weight:400;padding:.3rem .4rem;border-bottom:1px solid var(--dim)}
+.fin-table td{padding:.34rem .4rem;border-bottom:1px dashed rgba(0,204,0,.14);font-variant-numeric:tabular-nums}
+.match{display:grid;grid-template-columns:64px 1fr auto;gap:.5rem;align-items:center;border:1px solid var(--line);border-left:2px solid var(--dim);padding:.45rem .6rem;background:rgba(0,25,0,.3)}
+.match.live{border-left-color:var(--red)}
+.score{font-size:.95rem;font-variant-numeric:tabular-nums}
+.score b{color:var(--hi)}
+@media(max-width:800px){.shell{grid-template-columns:1fr}.rail{position:static;height:auto;border-right:none;border-bottom:2px solid var(--fg)}nav{flex-direction:row;flex-wrap:wrap}nav button{flex:1 1 40%}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="logo"><b>&gt; PROTON</b>-NEWS<span class="sub">SPLIT-PANE // DEMO A</span></div>
+    <nav id="nav"></nav>
+    <div class="blk"><h4>Markets</h4><div id="mkt"></div></div>
+    <div class="blk"><h4>Clocks</h4>
+      <div class="kv"><span class="muted">NYC</span><span id="c-nyc">--:--</span></div>
+      <div class="kv"><span class="muted">LDN</span><span id="c-ldn">--:--</span></div>
+      <div class="kv"><span class="muted">TYO</span><span id="c-tyo">--:--</span></div>
+    </div>
+    <div class="blk"><h4>Uplink</h4>
+      <div class="kv"><span class="muted">stories</span><span id="s-count">--</span></div>
+      <div class="kv"><span class="muted">countries</span><span id="s-ctry">--</span></div>
+      <div class="kv"><span class="muted">feeds</span><span>122</span></div>
+      <div class="kv"><span class="muted">status</span><span class="hi">● online</span></div>
+    </div>
+    <div class="rail-foot">GRID: 300PX RAIL + FLUID<br/>NO TOP NAV STACK<br/>EVERYTHING PERSISTENT</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span class="path" id="path">$ news --latest</span>
+      <input id="q" placeholder="filter stream..." autocomplete="off"/>
+      <span class="muted small" id="hint">/ to filter · 1-6 sections</span>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script src="demo.js"></script>
+<script>
+const SECTIONS=[["news","NEWS"],["finance","FINANCE"],["weather","WEATHER"],["sports","SPORTS"],["world","WORLD"],["planes","PLANES"]];
+let sec="news", q="", stories=[], sel=0;
+
+const nav=document.getElementById("nav");
+SECTIONS.forEach(([id,label],i)=>{
+  const b=document.createElement("button");
+  b.innerHTML=`<span>[ ${label} ]</span><span class="n">${i+1}</span>`;
+  b.onclick=()=>go(id);
+  b.dataset.id=id;
+  nav.appendChild(b);
+});
+function go(id){sec=id;document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("act",b.dataset.id===id));
+  document.getElementById("path").textContent="$ "+id+" --live";render();}
+
+document.getElementById("q").addEventListener("input",e=>{q=e.target.value.toLowerCase();render();});
+document.addEventListener("keydown",e=>{
+  if(e.key==="/" && document.activeElement.tagName!=="INPUT"){e.preventDefault();document.getElementById("q").focus();}
+  const n=Number(e.key); if(n>=1&&n<=SECTIONS.length) go(SECTIONS[n-1][0]);
+});
+
+function clock(){
+  const t=(tz)=>{try{return new Intl.DateTimeFormat("en-GB",{timeZone:tz,hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date())}catch(e){return "--:--"}};
+  document.getElementById("c-nyc").textContent=t("America/New_York");
+  document.getElementById("c-ldn").textContent=t("Europe/London");
+  document.getElementById("c-tyo").textContent=t("Asia/Tokyo");
+}
+setInterval(clock,1000);clock();
+
+document.getElementById("mkt").innerHTML=mockMarkets.map(m=>
+  `<div class="kv"><span class="muted">${m.s}</span><span class="${m.c>=0?'pos':'neg'}">${m.p} ${m.c>=0?'+':''}${m.c.toFixed(2)}%</span></div>`).join("");
+
+function storyCard(s,i){
+  return `<article class="story" data-i="${i}">
+    <div class="meta"><span class="tag">${s.sector||"GEN"}</span><span>${s.country||""}</span><span class="src">${s.source||""} · ${ago(s.ts)}</span></div>
+    <h3>${s.title}</h3>
+    <p>${(s.summary||"").slice(0,150)}</p>
+  </article>`;
+}
+
+function render(){
+  const c=document.getElementById("content");
+  if(sec==="news"){
+    let list=stories.filter(s=>!q || ((s.title+" "+(s.summary||"")+" "+(s.country||"")+" "+(s.source||"")).toLowerCase().includes(q)));
+    c.innerHTML=`<div class="spread"><span class="muted small">${list.length} / ${stories.length} stories · newest first</span><span class="muted small">${q?'filter: "'+q+'"':'no filter'}</span></div>
+      <div class="grid2">${list.map(storyCard).join("")||'<p class="muted">no matches.</p>'}</div>`;
+  } else if(sec==="finance"){
+    c.innerHTML=`<div class="spread"><span class="h4 k">INDICES / CRYPTO / COMMODITIES</span><span class="muted small">demo data</span></div>
+      <table class="fin-table"><tr><th>SYMBOL</th><th>LAST</th><th>CHG%</th><th>SESSION</th></tr>
+      ${mockMarkets.map(m=>`<tr><td><b>${m.s}</b></td><td>${m.p}</td><td class="${m.c>=0?'pos':'neg'}">${m.c>=0?'+':''}${m.c.toFixed(2)}%</td><td class="muted">${m.c>=0?'▲ bid':'▼ offer'}</td></tr>`).join("")}
+      </table>`;
+  } else if(sec==="sports"){
+    c.innerHTML=`<div class="spread"><span class="muted small">LIVE + FINALS</span><span class="muted small">demo data</span></div>
+      ${mockMatches.map(m=>`<div class="match ${m.live?'live':''}">
+        <span class="tag ${m.live?'live':''}">${m.league}</span>
+        <div><span class="${m.live?'hi':''}">${m.q}</span></div>
+        <div class="score">${m.a} <b>${m.sa}</b> — <b>${m.sb}</b> ${m.b}</div>
+      </div>`).join("")}`;
+  } else if(sec==="weather"){
+    c.innerHTML=`<div class="grid2">
+      <div class="story"><div class="meta"><span class="tag">CURRENT</span><span>New York</span></div><h3 style="font-size:1.6rem">14°C · clear</h3><p>feels 12° · wind NW 14 km/h · humidity 48%</p></div>
+      <div class="story"><div class="meta"><span class="tag">AQI</span><span>US AQI</span></div><h3 style="font-size:1.6rem">32 · good</h3><p>PM2.5 8 µg/m³ · O₃ 41 µg/m³</p></div>
+      <div class="story"><div class="meta"><span class="tag">FORECAST</span><span>3 day</span></div><h3>15° / 9° · 13° / 8° · 11° / 6°</h3><p>rain probability 10% / 40% / 65%</p></div>
+      <div class="story"><div class="meta"><span class="tag">UV</span><span>peak</span></div><h3 style="font-size:1.6rem">2.1 · low</h3><p>safe exposure window 10:00–15:00</p></div>
+    </div>`;
+  } else {
+    c.innerHTML=`<div class="story"><div class="meta"><span class="tag">DEMO</span></div><h3>${sec.toUpperCase()} section</h3><p>In the real build this pane keeps the full width it has here — the rail never moves.</p></div>`;
+  }
+}
+
+loadStories(24).then(d=>{
+  stories=d;
+  document.getElementById("s-count").textContent=stories.length;
+  document.getElementById("s-ctry").textContent=new Set(stories.map(s=>s.country).filter(Boolean)).size;
+  go("news");
+});
+</script>
+</body>
+</html>

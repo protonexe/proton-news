@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PROTON-NEWS // UI DEMOS</title>
+<link rel="stylesheet" href="demo.css"/>
+<style>
+main{max-width:1080px;margin:0 auto;padding:1.2rem .9rem 4rem}
+h1{font-size:1.25rem;letter-spacing:1px;margin:0 0 .2rem}
+h1 b{color:var(--hi)}
+.sub{color:var(--dim);font-size:.72rem;letter-spacing:2px;margin-bottom:1.2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:.8rem}
+.demo{border:1px solid var(--line);padding:.8rem;background:rgba(0,25,0,.34);display:flex;flex-direction:column;gap:.45rem}
+.demo:hover{border-color:var(--fg)}
+.demo .id{font-size:.6rem;letter-spacing:2px;color:var(--dim)}
+.demo h2{margin:0;font-size:.98rem;line-height:1.25}
+.demo p{margin:0;font-size:.74rem;color:#00a000;line-height:1.45;flex:1}
+.demo .tags{display:flex;gap:.3rem;flex-wrap:wrap;margin:.15rem 0 .35rem}
+.demo .tag{font-size:.58rem;border:1px solid var(--dim);color:var(--dim);padding:0 .3rem;letter-spacing:1px}
+.demo a{display:block;text-align:center;border:1px solid var(--fg);padding:.4rem;text-decoration:none;font-size:.72rem;letter-spacing:1px}
+.demo a:hover{background:var(--fg);color:#000}
+.note{border:1px dashed var(--dim);padding:.8rem;font-size:.74rem;color:#00a000;margin-top:1rem;line-height:1.5}
+.back{font-size:.7rem;color:var(--dim);letter-spacing:1px;margin-bottom:1rem;display:block}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">&lt; back to the live dashboard</a>
+  <h1><b>&gt; PROTON-NEWS</b> // UI CONCEPT DEMOS</h1>
+  <div class="sub">SIX DIRECTIONS · SAME CRT SKIN · REAL LIVE FEED DATA WHERE POSSIBLE</div>
+
+  <div class="grid">
+    <div class="demo">
+      <div class="id">CONCEPT A</div>
+      <h2>Split-pane terminal</h2>
+      <div class="tags"><span class="tag">LAYOUT</span><span class="tag">BIGGEST WIN</span></div>
+      <p>Persistent 300px left rail holds nav, markets, clocks and uplink stats. Content gets the full remaining width and never reflows when you switch sections. Keys 1–6 jump sections, / focuses filter.</p>
+      <a href="a-split-rail.html">[ OPEN DEMO A ]</a>
+    </div>
+
+    <div class="demo">
+      <div class="id">CONCEPT B</div>
+      <h2>Density modes</h2>
+      <div class="tags"><span class="tag">READING</span><span class="tag">QUICK TO BUILD</span></div>
+      <p>COMPACT / NORMAL / RELAXED toggle. Compact hides summaries and images and fits ~40 headlines per screen. Choice persists in localStorage; press D to cycle.</p>
+      <a href="b-density.html">[ OPEN DEMO B ]</a>
+    </div>
+
+    <div class="demo">
+      <div class="id">CONCEPT C</div>
+      <h2>Dashboard home</h2>
+      <div class="tags"><span class="tag">LAYOUT</span><span class="tag">MOST IMPRESSIVE</span></div>
+      <p>Landing page becomes a tile grid: headlines, markets, next matches, weather, airspace, coverage bars. Click any tile to expand it to full width. Feels like a monitoring console instead of a feed.</p>
+      <a href="c-dashboard.html">[ OPEN DEMO C ]</a>
+    </div>
+
+    <div class="demo">
+      <div class="id">CONCEPT D</div>
+      <h2>Reader pane</h2>
+      <div class="tags"><span class="tag">UX</span><span class="tag">NO NEW TABS</span></div>
+      <p>Headline list left, article right. J/K walks the wire, ESC returns to the list, source link and read-aloud live in the pane. Stacks to list→article on mobile.</p>
+      <a href="d-reader-pane.html">[ OPEN DEMO D ]</a>
+    </div>
+
+    <div class="demo">
+      <div class="id">CONCEPT E</div>
+      <h2>Command palette</h2>
+      <div class="tags"><span class="tag">NAVIGATION</span><span class="tag">KEYBOARD</span></div>
+      <p>Ctrl+K fuzzy palette over sections, symbols, cities, leagues and actions. Replaces the whole top nav if you commit to it. History chips on the page, arrows + Enter inside the overlay.</p>
+      <a href="e-command-palette.html">[ OPEN DEMO E ]</a>
+    </div>
+
+    <div class="demo">
+      <div class="id">CONCEPT F</div>
+      <h2>80-column mode</h2>
+      <div class="tags"><span class="tag">AESTHETIC</span><span class="tag">EXPERIMENTAL</span></div>
+      <p>Hard 80-character measure, centered on black, just like a real terminal. Toggle to full width to see the same content expand. Wide tables scroll horizontally in 80-col mode.</p>
+      <a href="f-80col.html">[ OPEN DEMO F ]</a>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Combination note:</b> A + B stack cleanly (rail layout, density toggle in the top bar) and is the lowest-risk full revamp.
+    C works best as a new default landing tab with the existing sections kept as drill-downs.
+    D, E and F are independent and can bolt onto any of the above.
+    <br/><br/>
+    All demos pull live headlines from <span class="hi">/news?limit=24</span> and fall back to mock data if the backend is slow.
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DEMO E // COMMAND PALETTE</title>
+<link rel="stylesheet" href="demo.css"/>
+<style>
+header{padding:.55rem .85rem;border-bottom:2px solid var(--fg);display:flex;gap:.7rem;align-items:center;flex-wrap:wrap;position:sticky;top:0;background:#000;z-index:10}
+header .brand{font-size:1rem;letter-spacing:1px}
+header .brand b{color:var(--hi)}
+header .kbd{margin-left:auto;font-size:.64rem;color:var(--dim);letter-spacing:1px}
+kbd{border:1px solid var(--dim);padding:0 .3rem;color:var(--fg);font-family:inherit;font-size:.68rem}
+main{max-width:1100px;margin:0 auto;padding:.8rem}
+.section-title{font-size:.62rem;letter-spacing:2px;color:var(--dim);margin:.2rem 0 .5rem;text-transform:uppercase}
+.cmdbar{display:flex;gap:.5rem;align-items:center;border:1px solid var(--dim);padding:.4rem .6rem;font-size:.75rem;margin-bottom:.8rem;color:var(--dim)}
+.cmdbar b{color:var(--fg)}
+.chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem}
+.chips button{font-size:.64rem;padding:.22rem .45rem}
+.panel{border:1px solid var(--line);padding:.7rem;margin-bottom:.8rem;background:rgba(0,25,0,.3)}
+.panel h3{margin:0 0 .4rem;font-size:.8rem}
+.empty-hint{border:1px dashed var(--dim);padding:1rem;text-align:center;font-size:.78rem;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>&gt; PROTON</b>-NEWS <span class="muted small" style="letter-spacing:2px">// DEMO E · COMMAND PALETTE</span></div>
+  <div class="kbd">press <kbd>CTRL</kbd> + <kbd>K</kbd> anywhere</div>
+</header>
+
+<main>
+  <div class="cmdbar">$ <b>try it:</b> ctrl+k → type “nba”, “weather tokyo”, “aapl”, “standings”, “refresh”</div>
+
+  <div class="section-title">Current section</div>
+  <div class="panel" id="current">
+    <h3 id="cur-title">[ NEWS ] — latest stream</h3>
+    <p class="muted small" id="cur-sub">Waiting for a command. Everything stays on one page.</p>
+  </div>
+
+  <div class="section-title">What the palette replaces</div>
+  <div class="grid2">
+    <div class="panel"><h3>Nav buttons</h3><p class="muted small">No more 8-button top bar. Ctrl+K → “sp” → Sports. Keyboard-first, mouse still works.</p></div>
+    <div class="panel"><h3>Symbol search</h3><p class="muted small">“aapl”, “btc”, “nvda” → chart. One input for every entity type.</p></div>
+    <div class="panel"><h3>City weather</h3><p class="muted small">“weather tokyo” → full weather panel for the city.</p></div>
+    <div class="panel"><h3>Raw command history</h3><p class="muted small">Last 5 commands appear when the palette is empty. ↑/↓ recalls.</p></div>
+  </div>
+
+  <div class="section-title">Recent commands</div>
+  <div class="chips" id="chips"><span class="muted small">none yet</span></div>
+</main>
+
+<div id="palette-wrap">
+  <div id="palette">
+    <div class="p-head"><span>&gt;</span><input id="pq" placeholder="type a command or symbol..." autocomplete="off" spellcheck="false"/><span class="small" id="pcount">0</span></div>
+    <div class="p-list" id="plist"></div>
+    <div class="p-foot">↑↓ navigate · ENTER run · ESC close</div>
+  </div>
+</div>
+
+<script src="demo.js"></script>
+<script>
+const CMDS=[
+ {c:"goto news",h:"section",run:()=>section("news","latest stream")},
+ {c:"goto finance",h:"section",run:()=>section("finance","indices + crypto")},
+ {c:"goto weather",h:"section",run:()=>section("weather","current + forecast")},
+ {c:"goto sports",h:"section",run:()=>section("sports","live + finals")},
+ {c:"goto world",h:"section",run:()=>section("world","country map")},
+ {c:"goto planes",h:"section",run:()=>section("planes","live airspace")},
+ {c:"goto customize",h:"section",run:()=>section("customize","feeds + prefs")},
+ {c:"standings nba",h:"table",run:()=>section("standings · nba","eastern + western")},
+ {c:"standings nfl",h:"table",run:()=>section("standings · nfl","afc + nfc")},
+ {c:"search AAPL",h:"symbol",run:()=>section("finance · AAPL","242.19 +1.12%")},
+ {c:"search NVDA",h:"symbol",run:()=>section("finance · NVDA","188.42 +2.04%")},
+ {c:"search BTC",h:"symbol",run:()=>section("finance · BTC","104,882 +2.34%")},
+ {c:"weather tokyo",h:"city",run:()=>section("weather · tokyo","18° clear · AQI 41")},
+ {c:"weather london",h:"city",run:()=>section("weather · london","11° drizzle · AQI 28")},
+ {c:"weather new york",h:"city",run:()=>section("weather · new york","14° clear · AQI 32")},
+ {c:"match arsenal",h:"sports",run:()=>section("sports · arsenal","1-1 liv · FT")},
+ {c:"refresh",h:"action",run:()=>{section("refresh","pulling 122 feeds...");toast("refresh queued");}},
+ {c:"read aloud",h:"action",run:()=>toast("reading current story")},
+ {c:"add feed URL",h:"action",run:()=>toast("add-feed dialog would open")},
+ {c:"export opml",h:"action",run:()=>toast("proton-news.opml downloaded")}
+];
+let history=[], sel=0, filtered=CMDS;
+const wrap=document.getElementById("palette-wrap");
+const pq=document.getElementById("pq");
+const plist=document.getElementById("plist");
+
+function openPalette(){
+  wrap.classList.add("open");pq.value="";sel=0;filter();pq.focus();
+}
+function closePalette(){wrap.classList.remove("open");}
+function filter(){
+  const q=pq.value.trim().toLowerCase();
+  filtered=q?CMDS.filter(x=>x.c.toLowerCase().includes(q)||x.h.includes(q)):CMDS;
+  sel=0;paint();
+}
+function paint(){
+  plist.innerHTML=filtered.length?filtered.map((x,i)=>
+    `<div class="pitem ${i===sel?'sel':''}" data-i="${i}"><span>&gt;</span><span class="cmd">${x.c}</span><span class="hint">${x.h}</span></div>`).join("")
+    :`<div class="pitem"><span class="muted">no match — try “nba”, “aapl”, “weather tokyo”</span></div>`;
+  plist.querySelectorAll(".pitem[data-i]").forEach(n=>n.onclick=()=>run(Number(n.dataset.i)));
+  document.getElementById("pcount").textContent=filtered.length;
+}
+function run(i){
+  const x=filtered[i];if(!x)return;
+  history.unshift(x.c);history=history.slice(0,5);paintChips();
+  x.run();closePalette();
+}
+function paintChips(){
+  const el=document.getElementById("chips");
+  el.innerHTML=history.length?history.map(h=>`<button>${h}</button>`).join(""):'<span class="muted small">none yet</span>';
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{pq.value=b.textContent;wrap.classList.add("open");pq.focus();filter();});
+}
+function section(title,sub){
+  document.getElementById("cur-title").textContent="[ "+title.toUpperCase()+" ]";
+  document.getElementById("cur-sub").textContent=sub;
+}
+
+let toastTimer;
+function toast(m){
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}
+  t.textContent=m;t.classList.add("show");clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),2000);
+}
+
+pq.addEventListener("input",filter);
+pq.addEventListener("keydown",e=>{
+  if(e.key==="ArrowDown"){e.preventDefault();sel=Math.min(filtered.length-1,sel+1);paint();}
+  else if(e.key==="ArrowUp"){e.preventDefault();sel=Math.max(0,sel-1);paint();}
+  else if(e.key==="Enter"){e.preventDefault();run(sel);}
+  else if(e.key==="Escape"){closePalette();}
+});
+wrap.addEventListener("click",e=>{if(e.target===wrap)closePalette();});
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openPalette();}
+  if(e.key==="Escape")closePalette();
+  if(e.key==="/"&&!wrap.classList.contains("open")){e.preventDefault();openPalette();}
+});
+paint();
+</script>
+</body>
+</html>

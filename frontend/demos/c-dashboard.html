@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DEMO C // DASHBOARD HOME</title>
+<link rel="stylesheet" href="demo.css"/>
+<style>
+header{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.6rem .9rem;border-bottom:2px solid var(--fg);position:sticky;top:0;background:#000;z-index:10}
+header .brand{font-size:1.02rem;letter-spacing:1px}
+header .brand b{color:var(--hi)}
+header .clocks{margin-left:auto;display:flex;gap:.9rem;font-size:.68rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.wrap{padding:.8rem;display:grid;grid-template-columns:repeat(12,1fr);gap:.65rem;max-width:1500px;margin:0 auto}
+.tile{border:1px solid var(--line);background:rgba(0,25,0,.34);padding:.65rem .75rem;min-width:0;transition:border-color .12s,background .12s;cursor:pointer;position:relative}
+.tile:hover{border-color:var(--fg);background:rgba(0,50,0,.42)}
+.tile.w4{grid-column:span 4}.tile.w5{grid-column:span 5}.tile.w6{grid-column:span 6}.tile.w7{grid-column:span 7}.tile.w8{grid-column:span 8}.tile.w12{grid-column:span 12}
+.tile h2{margin:0 0 .5rem;font-size:.64rem;letter-spacing:2px;color:var(--dim);font-weight:400;text-transform:uppercase;display:flex;justify-content:space-between;gap:.5rem}
+.tile h2 em{font-style:normal;color:var(--fg)}
+.big{font-size:1.7rem;line-height:1.1}
+.mid{font-size:1.15rem}
+.tile-line{display:flex;justify-content:space-between;gap:.6rem;font-size:.76rem;padding:.22rem 0;border-bottom:1px dashed rgba(0,204,0,.12)}
+.tile-line:last-child{border-bottom:none}
+.tile-line span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.expanded{grid-column:span 12;background:rgba(0,45,0,.4)}
+.fake-map{height:112px;border:1px solid var(--dim);position:relative;overflow:hidden;background:
+  radial-gradient(circle at 30% 40%,rgba(0,204,0,.14),transparent 60%),
+  radial-gradient(circle at 70% 70%,rgba(0,204,0,.1),transparent 55%)}
+.fake-map i{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--hi);box-shadow:0 0 8px var(--fg)}
+.fake-map i.r{background:var(--red);box-shadow:0 0 8px var(--red)}
+.hintbar{margin:.2rem 0 0;font-size:.62rem;color:var(--dim);letter-spacing:1px}
+.spark{display:flex;gap:2px;align-items:flex-end;height:26px;margin-top:.4rem}
+.spark i{flex:1;background:var(--dim)}
+.spark i.up{background:var(--fg)}
+@media(max-width:900px){.tile.w4,.tile.w5,.tile.w6,.tile.w7,.tile.w8{grid-column:span 12}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>&gt; PROTON</b>-NEWS <span class="muted small" style="letter-spacing:2px">// DEMO C · DASHBOARD</span></div>
+  <div class="clocks"><span id="c-nyc">NYC --:--</span><span id="c-ldn">LDN --:--</span><span id="c-tyo">TYO --:--</span></div>
+</header>
+<div class="wrap" id="wrap">
+  <section class="tile w8" data-t="headlines">
+    <h2>Top headlines <em id="hcount">--</em></h2>
+    <div id="headlines"><p class="muted">syncing...</p></div>
+    <p class="hintbar">click tile to expand · j/k to move once expanded</p>
+  </section>
+
+  <section class="tile w4" data-t="markets">
+    <h2>Markets <em class="hi">NYSE OPEN</em></h2>
+    <div class="big" id="spx">6,842.10</div>
+    <div class="small pos">+0.62% today</div>
+    <div class="spark" id="spark"></div>
+    <div id="mkts" style="margin-top:.45rem"></div>
+  </section>
+
+  <section class="tile w4" data-t="matches">
+    <h2>Next up <em>6 events</em></h2>
+    <div id="matches"></div>
+  </section>
+
+  <section class="tile w4" data-t="weather">
+    <h2>Weather <em>NYC</em></h2>
+    <div class="big">14°</div>
+    <div class="small muted">clear · feels 12° · wind NW 14</div>
+    <div class="tile-line" style="margin-top:.5rem"><span>AQI</span><span class="hi">32 good</span></div>
+    <div class="tile-line"><span>UV peak</span><span>2.1 low</span></div>
+    <div class="tile-line"><span>sunset</span><span>16:41</span></div>
+  </section>
+
+  <section class="tile w4" data-t="planes">
+    <h2>Airspace <em class="hi">312 tracked</em></h2>
+    <div class="fake-map" id="map"></div>
+    <div class="tile-line" style="margin-top:.4rem"><span>fastest</span><span>UAL904 · 611 kt</span></div>
+    <div class="tile-line"><span>highest</span><span>BAW117 · 41,000 ft</span></div>
+  </section>
+
+  <section class="tile w6" data-t="country">
+    <h2>Coverage <em id="ccount">-- countries</em></h2>
+    <div id="coverage"></div>
+  </section>
+
+  <section class="tile w6" data-t="watch">
+    <h2>Wire status <em>122 feeds</em></h2>
+    <div class="tile-line"><span>NORTH AMERICA</span><span class="hi">14 sources</span></div>
+    <div class="tile-line"><span>WESTERN EUROPE</span><span class="hi">18 sources</span></div>
+    <div class="tile-line"><span>EAST ASIA</span><span class="hi">11 sources</span></div>
+    <div class="tile-line"><span>AFRICA</span><span class="amber">9 sources</span></div>
+    <div class="tile-line"><span>last full sync</span><span>14s ago</span></div>
+  </section>
+</div>
+
+<script src="demo.js"></script>
+<script>
+const tz=(z)=>new Intl.DateTimeFormat("en-GB",{timeZone:z,hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
+function clocks(){
+  document.getElementById("c-nyc").textContent="NYC "+tz("America/New_York");
+  document.getElementById("c-ldn").textContent="LDN "+tz("Europe/London");
+  document.getElementById("c-tyo").textContent="TYO "+tz("Asia/Tokyo");
+}
+setInterval(clocks,1000);clocks();
+
+// tiny fake sparkline
+document.getElementById("spark").innerHTML=Array.from({length:26},(_,i)=>{
+  const h=8+Math.round(Math.abs(Math.sin(i*1.3))*16);
+  return `<i class="${i%5?'':'up'}" style="height:${h}px"></i>`;
+}).join("");
+
+document.getElementById("mkts").innerHTML=mockMarkets.slice(3).map(m=>
+  `<div class="tile-line"><span>${m.s}</span><span class="${m.c>=0?'pos':'neg'}">${m.p} ${m.c>=0?'+':''}${m.c.toFixed(2)}%</span></div>`).join("");
+
+document.getElementById("matches").innerHTML=mockMatches.slice(0,4).map(m=>
+  `<div class="tile-line"><span>${m.league} · ${m.a} ${m.b}</span><span class="${m.live?'neg':'muted'}">${m.live?m.sa+"-"+m.sb+" "+m.q:m.sa+"-"+m.sb+" FT"}</span></div>`).join("");
+
+// fake flights
+const map=document.getElementById("map");
+Array.from({length:26}).forEach(()=>{
+  const i=document.createElement("i");
+  i.style.left=(6+Math.random()*86)+"%";i.style.top=(8+Math.random()*80)+"%";
+  if(Math.random()<.25)i.className="r";
+  map.appendChild(i);
+});
+
+loadStories(24).then(d=>{
+  const top=d.slice(0,6);
+  document.getElementById("headlines").innerHTML=top.map(s=>
+    `<div class="tile-line"><span>${s.title}</span><span class="muted small">${s.source} · ${ago(s.ts)}</span></div>`).join("");
+  document.getElementById("hcount").textContent=d.length+" stories";
+  const counts={};
+  d.forEach(s=>{const c=s.country||"?";counts[c]=(counts[c]||0)+1});
+  const topC=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  document.getElementById("coverage").innerHTML=topC.map(([c,n])=>
+    `<div class="tile-line"><span>${c}</span><span><span class="hi">${"█".repeat(Math.min(12,n))}</span> ${n}</span></div>`).join("");
+  document.getElementById("ccount").textContent=Object.keys(counts).length+" countries";
+});
+
+// expand tile
+document.querySelectorAll(".tile").forEach(t=>{
+  t.onclick=()=>{
+    const was=t.classList.contains("expanded");
+    document.querySelectorAll(".tile").forEach(x=>x.classList.remove("expanded"));
+    if(!was)t.classList.add("expanded");
+  };
+});
+</script>
+</body>
+</html>

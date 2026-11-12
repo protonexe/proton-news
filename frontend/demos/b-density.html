@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DEMO B // DENSITY MODES</title>
+<link rel="stylesheet" href="demo.css"/>
+<style>
+header{position:sticky;top:0;z-index:10;background:#000;border-bottom:2px solid var(--fg);padding:.55rem .8rem;display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+.brand{font-size:1rem;letter-spacing:1px;flex:1 1 220px}
+.brand b{color:var(--hi)}
+.seg{display:flex;gap:.25rem}
+.seg button{padding:.3rem .55rem;font-size:.66rem}
+.stats{display:flex;gap:.8rem;font-size:.66rem;color:var(--dim);letter-spacing:1px}
+main{max-width:1200px;margin:0 auto;padding:.8rem}
+.count{font-size:.66rem;color:var(--dim);letter-spacing:1px;margin-bottom:.5rem}
+
+/* COMPACT */
+body.d-compact .story{padding:.18rem .5rem;border-left-width:1px;border-color:rgba(0,204,0,.12);background:transparent;display:grid;grid-template-columns:58px 1fr auto;gap:.6rem;align-items:baseline}
+body.d-compact .story h3{font-size:.78rem;margin:0;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.d-compact .story p{display:none}
+body.d-compact .story .meta{margin:0;font-size:.62rem;display:contents}
+body.d-compact .story .meta .tag,
+body.d-compact .story .meta .ctry{display:none}
+body.d-compact .story .meta .src{order:3;color:var(--dim)}
+body.d-compact .story .meta .time{order:1;color:var(--dim)}
+body.d-compact .story h3{order:2}
+body.d-compact .grid2{grid-template-columns:1fr;gap:0}
+
+/* NORMAL */
+body.d-normal .story h3{font-size:.88rem}
+body.d-normal .story p{display:none}
+
+/* RELAXED */
+body.d-relaxed .story{padding:.7rem .8rem}
+body.d-relaxed .story h3{font-size:.95rem}
+body.d-relaxed .story p{display:block;line-height:1.4;margin-top:.3rem}
+body.d-relaxed .grid2{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+.ab{display:none;border:1px dashed var(--dim);height:120px;margin:.45rem 0 .1rem;align-content:center;text-align:center;font-size:.6rem;color:var(--dim);letter-spacing:2px}
+body.d-relaxed .ab{display:grid}
+main.wide{max-width:100%}
+</style>
+</head>
+<body class="d-normal">
+<header>
+  <div class="brand"><b>&gt; PROTON</b>-NEWS <span class="muted small" style="letter-spacing:2px">// DEMO B · DENSITY</span></div>
+  <div class="seg" id="seg">
+    <button data-d="compact">[ COMPACT ]</button>
+    <button data-d="normal">[ NORMAL ]</button>
+    <button data-d="relaxed">[ RELAXED ]</button>
+  </div>
+  <div class="seg"><button id="wide">[ TOGGLE FULL WIDTH ]</button></div>
+  <div class="stats"><span id="cnt">-- stories</span><span id="scr">--</span></div>
+</header>
+<main id="main">
+  <div class="count" id="hint">compact ≈ 40 stories/screen · normal ≈ 18 · relaxed ≈ 8 — press D to cycle</div>
+  <div class="grid2" id="list"></div>
+</main>
+<script src="demo.js"></script>
+<script>
+const KEY="demo_b_density";
+let density=localStorage.getItem(KEY)||"normal";
+let stories=[];
+
+function apply(){
+  document.body.className="d-"+density;
+  document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("act",b.dataset.d===density));
+  const per={compact:40,normal:18,relaxed:8}[density];
+  document.getElementById("scr").textContent="~"+per+" per screen";
+  localStorage.setItem(KEY,density);
+}
+document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{density=b.dataset.d;apply();});
+document.getElementById("wide").onclick=()=>document.getElementById("main").classList.toggle("wide");
+document.addEventListener("keydown",e=>{
+  if(e.key.toLowerCase()!=="d"||document.activeElement.tagName==="INPUT")return;
+  const order=["compact","normal","relaxed"];
+  density=order[(order.indexOf(density)+1)%order.length];apply();
+});
+
+function card(s,i){
+  return `<article class="story">
+    <div class="meta"><span class="tag">${s.sector||"GEN"}</span><span class="ctry">${s.country||""}</span><span class="time">${ago(s.ts)}</span><span class="src">${s.source||""}</span></div>
+    <h3 contenteditable="false">${s.title}</h3>
+    <div class="ab">[ IMAGE ]</div>
+    <p>${(s.summary||"").slice(0,200)}</p>
+  </article>`;
+}
+
+loadStories(24).then(d=>{
+  stories=d;
+  document.getElementById("list").innerHTML=stories.map(card).join("");
+  document.getElementById("cnt").textContent=stories.length+" stories";
+  apply();
+});
+</script>
+</body>
+</html>
