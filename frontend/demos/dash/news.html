@@ -222,7 +222,7 @@ function paintExtract(d,gen,s,sum){
     : "";
   box.innerHTML=fig+paras.map(p=>`<p>${PN.esc(p)}</p>`).join("");
   const tag=document.getElementById("x-tag");
-  if(tag){tag.style.display="";tag.textContent="FULL TEXT";}
+  if(tag){tag.style.display="";tag.textContent=d.paywalled?"PAYWALL PREVIEW":"FULL TEXT";}
   const note=document.getElementById("xnote");
   if(note){
     const bits=[];
@@ -230,7 +230,9 @@ function paintExtract(d,gen,s,sum){
     if(d.byline)bits.push("by "+d.byline);
     if(d.published)bits.push(String(d.published).slice(0,10));
     bits.push("via "+String(d.extractor||"extractor"));
-    note.textContent="EXTRACTED FROM SOURCE · "+bits.join(" · ");
+    note.textContent=(d.paywalled
+      ?"PAYWALLED · free preview only · "
+      :"EXTRACTED FROM SOURCE · ")+bits.join(" · ");
   }
 }
 

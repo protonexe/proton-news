@@ -1048,7 +1048,25 @@ _BOILER_RE = re.compile(
     r"see more of our coverage|your search results|click to share|copy link|"
     r"email to a friend|skip advert|recommended (for you|stories)|most popular|"
     r"read next|you may also like|listen to (this|the) article|"
+    r"apple podcasts|google podcasts|spotify|ivoox|podimo|"
+    r"esc[uú]chalo|puedes escucharlo|"
     r"this (article|story) (was|has been) originally)",
+    re.I,
+)
+
+# Publisher paywall markers. Kept separate from boilerplate because hitting one
+# means the body is truncated, which the reader should say out loud.
+_PAYWALL_RE = re.compile(
+    r"(il (vous )?reste\s+\d+(?:[.,]\d+)?\s*%|la suite est r[ée]serv[ée]e|"
+    r"subscribe (to|for) (continue|full access)|to continue reading|"
+    r"this (article|story) is (only )?available (to|for) subscribers|"
+    r"for subscribers only|become a subscriber|"
+    r"rest of (this|the) (article|story)|continue reading (with|on)|"
+    r"already a subscriber\??\s*(sign|log) in|unlock (this|the) article|"
+    r"este (art[ií]culo|contenido) es (solo )?para suscriptores|"
+    r"suscr[ií]bete para (seguir|continuar)|contenido exclusivo para suscriptores|"
+    r"nur f[uü]r abonnenten|weiterlesen mit|"
+    r"conte[uú]do exclusivo para assinantes|assine para (continuar|ler))",
     re.I,
 )
 
@@ -1272,6 +1290,18 @@ def _extract_article(url: str) -> dict:
         ]
     if not paragraphs:
         return {}
+
+    # Cut at the paywall marker so a teaser is labelled instead of silently
+    # looking like a whole story.
+    paywalled = False
+    for idx, p in enumerate(paragraphs):
+        if len(p) < 320 and _PAYWALL_RE.search(p):
+            paywalled = True
+            paragraphs = paragraphs[:idx]
+            break
+    if paywalled and not paragraphs:
+        return {}
+
     published = (
         meta.get("article:published_time")
         or meta.get("datepublished")
@@ -1292,6 +1322,7 @@ def _extract_article(url: str) -> dict:
         "paragraphs": paragraphs,
         "words": sum(len(p.split()) for p in paragraphs),
         "extractor": extractor,
+        "paywalled": paywalled,
     }
 
 
