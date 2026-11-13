@@ -46,12 +46,14 @@ details .fl{font-size:.64rem;color:var(--dim);line-height:1.6;padding:.2rem 0 .4
     <div class="panel" style="grid-column:span 5">
       <h2>LOCAL STATE</h2>
       <div class="catrow"><span>READ STORIES</span><span class="n" id="read-count">0</span></div>
+      <div class="catrow"><span>SAVED ARTICLES</span><span class="n" id="saved-count">0</span></div>
       <div class="catrow"><span>THEME</span><span class="n" id="theme-state">green</span></div>
       <div class="catrow"><span>READER FONT</span><span class="n" id="fs-state">14px</span></div>
-      <div class="catrow"><span>DASHBOARD BUILD</span><span class="n">v2 demo</span></div>
+      <div class="catrow"><span>DASHBOARD BUILD</span><span class="n">v2 live</span></div>
       <div class="btnrow">
         <button id="clear-read">[ CLEAR READ HISTORY ]</button>
         <button id="open-reader">[ OPEN READER ]</button>
+        <button id="open-saved">[ VIEW SAVED ]</button>
       </div>
       <div class="small muted" style="margin-top:.7rem;line-height:1.6">
         Reader remembers what you opened and your font size. Themes live in localStorage under
@@ -68,7 +70,7 @@ details .fl{font-size:.64rem;color:var(--dim);line-height:1.6;padding:.2rem 0 .4
     </div>
   </div>
 </main>
-<div class="foot">PROTON-NEWS DASHBOARD v2 · <a href="index.html">← DASHBOARD</a></div>
+<div class="foot">PROTON-NEWS TERMINAL v2 · <a href="index.html">← DASHBOARD</a></div>
 
 <script src="dash.js"></script>
 <script>
@@ -76,9 +78,11 @@ PN.mountHeader("customize.html");
 
 const KEY_READ="pn_dash_read", KEY_FS="pn_dash_fs";
 function refreshState(){
-  let read=[];
+  let read=[],saved=[];
   try{read=JSON.parse(localStorage.getItem(KEY_READ)||"[]");}catch(e){}
+  try{saved=JSON.parse(localStorage.getItem("pn_dash_saved")||"[]");}catch(e){}
   document.getElementById("read-count").textContent=read.length;
+  document.getElementById("saved-count").textContent=saved.length;
   const cur=PN.current();
   document.getElementById("theme-state").textContent=cur;
   document.getElementById("thname").textContent="current: "+PN.themeById(cur).name;
@@ -100,6 +104,7 @@ document.getElementById("clear-read").onclick=()=>{
   localStorage.removeItem(KEY_READ);refreshState();PN.toast("read history cleared");
 };
 document.getElementById("open-reader").onclick=()=>{location.href="news.html";};
+document.getElementById("open-saved").onclick=()=>{location.href="news.html?saved=1";};
 
 function paintFeeds(d){
   document.getElementById("feeds-meta").textContent=d.total+" feeds · "+d.countries.length+" countries · "+Object.keys(d.by_category).length+" categories";

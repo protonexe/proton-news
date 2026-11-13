@@ -14,6 +14,7 @@ import feedparser
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 socket.setdefaulttimeout(12)
@@ -1030,14 +1031,99 @@ def get_planes_global(limit: int = 300, lamin: float = None, lamax: float = None
 # ---------------------------------------------------------------- article text
 # /article/extract pulls the full readable body out of the publisher page so the
 # dash reader can show the actual story instead of only the RSS summary.
+# Bodies are cached in memory and on disk so restarts stay warm and
+# /article/search can query everything that has ever been opened.
+import hashlib
+import threading
+from urllib.error import HTTPError
+
 _ARTICLE_CACHE: dict = {}
-_ARTICLE_TTL = 6 * 3600.0
-_ARTICLE_MAX = 300
+_ARTICLE_TTL = 12 * 3600.0
+_ARTICLE_MAX = 400
+
+_DISK_TTL = 3 * 86400.0
+_DISK_MAX = 1200
+_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "cache", "articles"
+)
+_DOMAIN_GAP = 1.2  # seconds between requests to the same publisher
+_domain_last: dict[str, float] = {}
+_cache_lock = threading.Lock()
+_disk_writes = 0
 
 _UA_ARTICLE = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
+
+
+def _disk_path(url: str) -> str:
+    return os.path.join(_CACHE_DIR, hashlib.sha256(url.encode("utf-8")).hexdigest() + ".json")
+
+
+def _disk_get(url: str) -> dict | None:
+    try:
+        with open(_disk_path(url), "r", encoding="utf-8") as fh:
+            rec = json.load(fh)
+        if (
+            isinstance(rec, dict)
+            and isinstance(rec.get("data"), dict)
+            and (time.time() - float(rec.get("ts") or 0)) < _DISK_TTL
+        ):
+            return rec
+    except Exception:
+        pass
+    return None
+
+
+def _disk_put(url: str, data: dict) -> None:
+    global _disk_writes
+    try:
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        path = _disk_path(url)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"ts": time.time(), "url": url, "data": data},
+                fh,
+                ensure_ascii=False,
+            )
+        os.replace(tmp, path)
+    except Exception:
+        return
+    _disk_writes += 1
+    if _disk_writes % 25 == 0:
+        _disk_prune()
+
+
+def _disk_prune() -> None:
+    try:
+        names = [n for n in os.listdir(_CACHE_DIR) if n.endswith(".json")]
+        if len(names) <= _DISK_MAX:
+            return
+        paths = [os.path.join(_CACHE_DIR, n) for n in names]
+        paths.sort(key=lambda p: os.path.getmtime(p))
+        for p in paths[: len(paths) - _DISK_MAX]:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
+def _rate_limit(host: str) -> None:
+    """Keep at most one request every _DOMAIN_GAP seconds per publisher."""
+    if not host:
+        return
+    with _cache_lock:
+        now = time.time()
+        last = _domain_last.get(host, 0.0)
+        _domain_last[host] = max(now, last + _DOMAIN_GAP)
+        wait = _DOMAIN_GAP - (now - last)
+    if wait > 0:
+        time.sleep(min(wait, 4.0))
+
 
 _BOILER_RE = re.compile(
     r"(subscribe|sign up|newsletter|cookies?|privacy policy|terms of (use|service)|"
@@ -1165,20 +1251,38 @@ def _heuristic_body(html_text: str) -> list[str]:
     return _article_paras(raw)
 
 
-def _fetch_article_html(url: str) -> tuple[str, str]:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": _UA_ARTICLE,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=18) as resp:
-        raw = resp.read(3_000_000)
-        charset = resp.headers.get_content_charset()
-        final = resp.geturl()
-    return _decode_html(raw, charset), final
+def _fetch_article_html(url: str, tries: int = 2) -> tuple[str, str]:
+    host = (urlparse(url).hostname or "").lower()
+    last_exc: Exception | None = None
+    for attempt in range(tries):
+        _rate_limit(host)
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": _UA_ARTICLE,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=18) as resp:
+                raw = resp.read(3_000_000)
+                charset = resp.headers.get_content_charset()
+                final = resp.geturl()
+            return _decode_html(raw, charset), final
+        except HTTPError as exc:
+            last_exc = exc
+            if exc.code in (429, 503) and attempt + 1 < tries:
+                time.sleep(2.0 + attempt * 2.0)
+                continue
+            raise
+        except Exception as exc:
+            last_exc = exc
+            raise
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("article fetch failed")
+
 
 
 def _decode_html(raw: bytes, charset: str | None) -> str:
@@ -1342,6 +1446,11 @@ def extract_article(url: str):
     if hit and (now - hit["ts"]) < _ARTICLE_TTL:
         return hit["data"]
 
+    disk = _disk_get(url)
+    if disk:
+        _ARTICLE_CACHE[url] = {"ts": float(disk.get("ts") or now), "data": disk["data"]}
+        return disk["data"]
+
     try:
         payload = _extract_article(url)
     except Exception as exc:
@@ -1357,7 +1466,90 @@ def extract_article(url: str):
         for k in oldest:
             _ARTICLE_CACHE.pop(k, None)
     _ARTICLE_CACHE[url] = {"ts": now, "data": payload}
+    _disk_put(url, payload)
     return payload
+
+
+@app.get("/article/search")
+def search_cached_articles(q: str, limit: int = 40):
+    """Search the bodies of every article extracted so far (disk cache)."""
+    query = (q or "").strip()
+    if len(query) < 2:
+        return {"query": query, "count": 0, "results": []}
+    needle = query.lower()
+    limit = max(1, min(int(limit or 40), 100))
+    try:
+        names = [n for n in os.listdir(_CACHE_DIR) if n.endswith(".json")]
+    except Exception:
+        names = []
+    paths = sorted(
+        (os.path.join(_CACHE_DIR, n) for n in names),
+        key=lambda p: os.path.getmtime(p),
+        reverse=True,
+    )
+    results: list[dict] = []
+    seen: set[str] = set()
+    for path in paths[:800]:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                rec = json.load(fh)
+        except Exception:
+            continue
+        data = rec.get("data") or {}
+        if not isinstance(data, dict):
+            continue
+        url = rec.get("url") or ""
+        if not url or url in seen:
+            continue
+        title = str(data.get("title") or "")
+        paras = [str(p) for p in (data.get("paragraphs") or [])]
+        body = "\n".join(paras)
+        idx = body.lower().find(needle)
+        if idx < 0 and needle not in title.lower():
+            continue
+        seen.add(url)
+        if idx >= 0:
+            start = max(0, idx - 70)
+            end = min(len(body), idx + len(needle) + 130)
+            snippet = body[start:end].replace("\n", " ").strip()
+            snippet = ("…" if start else "") + snippet + ("…" if end < len(body) else "")
+        else:
+            snippet = paras[0][:200] if paras else ""
+        results.append(
+            {
+                "url": url,
+                "title": title,
+                "site": data.get("site") or "",
+                "words": data.get("words") or 0,
+                "paywalled": bool(data.get("paywalled")),
+                "snippet": re.sub(r"\s+", " ", snippet),
+                "ts": rec.get("ts") or 0,
+            }
+        )
+        if len(results) >= limit:
+            break
+    return {"query": query, "count": len(results), "results": results}
+
+
+# Old dashboard-v2 demo URLs used to live here. Keep bookmarks working.
+_DASH_PAGES = {
+    "index.html",
+    "news.html",
+    "finance.html",
+    "sports.html",
+    "weather.html",
+    "world.html",
+    "planes.html",
+    "customize.html",
+}
+
+
+@app.get("/demos/dash")
+@app.get("/demos/dash/")
+@app.get("/demos/dash/{page}")
+def dash_redirect(page: str = "index.html"):
+    target = "/" if page in ("", "index.html") or page not in _DASH_PAGES else "/" + page
+    return RedirectResponse(url=target, status_code=307)
 
 
 # Serve the frontend (index.html) as a real website at "/"

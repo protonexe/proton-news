@@ -56,7 +56,7 @@
     if(!host)return;
     host.className="top";
     host.innerHTML=`
-      <a class="brand" href="index.html"><b>&gt; PROTON</b>-NEWS<small>DASHBOARD v2 // DEMO</small></a>
+      <a class="brand" href="index.html"><b>&gt; PROTON</b>-NEWS<small>TERMINAL v2</small></a>
       <nav class="crumbs">${PAGES.map(([h,l])=>
         `<a href="${h}" class="${h===active?"act":""}">[ ${l} ]</a>`).join("")}</nav>
       <div class="hright"><span id="clocks"></span><button id="theme-btn">[ ◐ PAPER WHITE ]</button></div>`;
