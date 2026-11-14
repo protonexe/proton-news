@@ -27,6 +27,11 @@
 .globe-wrap canvas{display:block}
 .globe-wrap::after{content:"DRAG TO SPIN · SCROLL TO ZOOM";position:absolute;left:.65rem;bottom:.55rem;
   font-size:.55rem;letter-spacing:1.5px;color:var(--dim);pointer-events:none;opacity:.85;z-index:2}
+.globe-wrap.map2d::after{content:"HOVER FOR COUNTS · CLICK TO SELECT"}
+.globe-wrap.map2d{cursor:default}
+#spin:disabled{opacity:.45}
+#globe svg path{transition:opacity .12s}
+#globe svg path:hover{opacity:.78}
 .globe-wrap .scene-tooltip{background:var(--bg)!important;color:var(--fg)!important;border:1px solid var(--fg);
   padding:.35rem .55rem;font-family:"Courier New",ui-monospace,monospace!important;font-size:.64rem!important;
   line-height:1.5;box-shadow:0 0 18px var(--glow);text-shadow:none}
@@ -122,6 +127,7 @@ const COUNTRY_ALIAS={
   "uae":"united arab emirates","burma":"myanmar"
 };
 let globe=null, geoFeatures=[], byCountry={}, maxStories=1, selectedName="", lastPoly="", lastClick=0;
+let map2d=false;
 
 function cssVar(n,d){
   const v=getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -155,7 +161,7 @@ function capColor(f){
   const P=pal();
   if(polySelected(f))return rgba(P.amber,.95);
   const n=polyCount(f);
-  if(!n)return rgba(P.dim,.30);
+  if(!n)return rgba(P.dim,.42);
   return rgba(P.fg,.30+.60*(n/maxStories));
 }
 function sideColor(f){
@@ -225,6 +231,7 @@ function selectCountry(name){
   document.getElementById("q").value=row?row.country:name;
   paint();
   updatePick();
+  if(map2d)renderMap2D();
   if(globe){
     const f=geoFeatures.find(x=>normCountry(x.properties.name)===normCountry(name));
     try{
@@ -243,6 +250,118 @@ function onPolyClick(f){
   }
   lastPoly=name;lastClick=now;
   selectCountry(name);
+}
+/* ---------- 2D fallback map: always works, no WebGL needed ---------- */
+const MAP_W=1000, MAP_H=500;
+function hasWebGL(){
+  try{
+    const c=document.createElement("canvas");
+    return !!(window.WebGLRenderingContext&&(c.getContext("webgl2")||c.getContext("webgl")||c.getContext("experimental-webgl")));
+  }catch(e){return false;}
+}
+function projXY(lon,lat){return [(lon+180)/360*MAP_W,(90-lat)/180*MAP_H];}
+function unwrapRing(ring){
+  let prev=null;const out=[];
+  ring.forEach(c=>{
+    let lon=c[0];
+    if(prev!==null){while(lon-prev>180)lon-=360;while(prev-lon>180)lon+=360;}
+    out.push([lon,c[1]]);prev=lon;
+  });
+  return out;
+}
+function ringD(ring){
+  const r=unwrapRing(ring);let d="";
+  r.forEach((c,i)=>{const p=projXY(c[0],c[1]);d+=(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1);});
+  return d?d+"Z":"";
+}
+function featureD(f){
+  const g=f.geometry;if(!g)return "";
+  let d="";
+  if(g.type==="Polygon")g.coordinates.forEach(r=>{d+=ringD(r);});
+  else if(g.type==="MultiPolygon")g.coordinates.forEach(poly=>poly.forEach(r=>{d+=ringD(r);}));
+  return d;
+}
+function renderMap2D(reason){
+  const el=document.getElementById("globe");
+  if(!el||!geoFeatures.length)return false;
+  map2d=true;
+  el.classList.add("map2d");
+  const NS="http://www.w3.org/2000/svg";
+  let svg=document.getElementById("worldmap");
+  if(!svg){
+    el.innerHTML="";
+    svg=document.createElementNS(NS,"svg");
+    svg.id="worldmap";
+    svg.setAttribute("viewBox","0 0 "+MAP_W+" "+MAP_H);
+    svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+    svg.style.cssText="width:100%;height:100%;display:block";
+    el.appendChild(svg);
+  }
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  const P=pal();
+  const grass=document.createElementNS(NS,"g");
+  svg.appendChild(grass);
+  for(let lon=-150;lon<=150;lon+=30){
+    const a=projXY(lon,-90),b=projXY(lon,90);
+    const l=document.createElementNS(NS,"line");
+    l.setAttribute("x1",a[0]);l.setAttribute("y1",a[1]);
+    l.setAttribute("x2",b[0]);l.setAttribute("y2",b[1]);
+    l.setAttribute("stroke",rgba(P.dim,.16));l.setAttribute("stroke-width",".7");
+    grass.appendChild(l);
+  }
+  for(let lat=-60;lat<=60;lat+=30){
+    const a=projXY(-180,lat),b=projXY(180,lat);
+    const l=document.createElementNS(NS,"line");
+    l.setAttribute("x1",a[0]);l.setAttribute("y1",a[1]);
+    l.setAttribute("x2",b[0]);l.setAttribute("y2",b[1]);
+    l.setAttribute("stroke",rgba(P.dim,.16));l.setAttribute("stroke-width",".7");
+    grass.appendChild(l);
+  }
+  const g=document.createElementNS(NS,"g");
+  svg.appendChild(g);
+  geoFeatures.forEach(f=>{
+    const d=featureD(f);
+    if(!d)return;
+    const name=(f.properties&&f.properties.name)||"";
+    const p=document.createElementNS(NS,"path");
+    p.setAttribute("d",d);
+    p.setAttribute("fill",capColor(f));
+    p.setAttribute("stroke",strokeColor());
+    p.setAttribute("stroke-width",polySelected(f)?"1":"0.45");
+    p.setAttribute("vector-effect","non-scaling-stroke");
+    p.style.cursor="pointer";
+    const title=document.createElementNS(NS,"title");
+    title.textContent=name+" — "+polyCount(f)+" "+(polyCount(f)===1?"story":"stories");
+    p.appendChild(title);
+    p.addEventListener("click",()=>onPolyClick({properties:{name:name}}));
+    g.appendChild(p);
+  });
+  const spin=document.getElementById("spin");
+  if(spin){spin.disabled=true;spin.checked=false;spin.title="3D globe only";}
+  if(globe)globe.controls().autoRotate=false;
+  return true;
+}
+function resetGlobeView(){
+  selectedName="";lastPoly="";filter="";
+  document.getElementById("q").value="";
+  paint();updatePick();
+  if(map2d)renderMap2D();
+  if(globe){
+    globe.pointOfView({lat:20,lng:5,altitude:1.55},700);
+    globe.polygonsData(geoFeatures);
+  }
+}
+function wireGlobeControls(){
+  const spin=document.getElementById("spin");
+  if(spin&&!spin.dataset.wired){
+    spin.dataset.wired="1";
+    spin.onchange=e=>{if(globe)globe.controls().autoRotate=e.target.checked;};
+  }
+  const reset=document.getElementById("greset");
+  if(reset&&!reset.dataset.wired){
+    reset.dataset.wired="1";
+    reset.onclick=resetGlobeView;
+  }
 }
 function initGlobe(){
   if(globe)return true;
@@ -268,16 +387,7 @@ function initGlobe(){
     globe.pointOfView({lat:20,lng:5,altitude:1.55});
     applyGlobeTheme();
     window.addEventListener("resize",()=>sizeGlobe());
-    document.getElementById("spin").onchange=e=>{if(globe)globe.controls().autoRotate=e.target.checked;};
-    document.getElementById("greset").onclick=()=>{
-      selectedName="";lastPoly="";filter="";
-      document.getElementById("q").value="";
-      paint();updatePick();
-      if(globe){
-        globe.pointOfView({lat:20,lng:5,altitude:1.55},700);
-        globe.polygonsData(geoFeatures);
-      }
-    };
+    wireGlobeControls();
     return true;
   }catch(e){
     console.warn("coverage globe init failed",e);
@@ -288,8 +398,7 @@ function initGlobe(){
 async function loadGeo(){
   const note=document.getElementById("gnote");
   const fb=document.getElementById("globe-fallback");
-  if(typeof Globe==="undefined"||typeof topojson==="undefined"){
-    if(fb)fb.textContent="3D globe unavailable in this browser — use the country index below.";
+  if(typeof topojson==="undefined"){
     if(note)note.textContent="globe unavailable";
     return;
   }
@@ -298,14 +407,27 @@ async function loadGeo(){
     const topo=await res.json();
     geoFeatures=topojson.feature(topo,topo.objects.countries).features||[];
     if(fb)fb.remove();
-    if(note)note.textContent=geoFeatures.length+" countries · "+rows.length+" with stories";
-    if(initGlobe()){globe.polygonsData(geoFeatures);sizeGlobe();}
+    const base=geoFeatures.length+" countries · "+rows.length+" with stories";
+    const can3d=typeof Globe!=="undefined"&&typeof THREE!=="undefined"&&hasWebGL();
+    if(can3d&&initGlobe()){
+      globe.polygonsData(geoFeatures);
+      sizeGlobe();
+      if(note)note.textContent=base;
+    }else{
+      renderMap2D(can3d?"3D failed, showing 2D map":"2D map (WebGL disabled)");
+      if(note)note.textContent=base+" · 2D MAP";
+    }
+    wireGlobeControls();
   }catch(e){
-    if(fb)fb.textContent="globe data unavailable — use the country index below.";
-    if(note)note.textContent="globe data unavailable";
+    console.warn("world map load failed",e);
+    if(fb)fb.textContent="map data unavailable — use the country index below.";
+    if(note)note.textContent="map data unavailable";
   }
 }
-document.addEventListener("pn-theme",()=>{if(globe)applyGlobeTheme();});
+document.addEventListener("pn-theme",()=>{
+  if(globe)applyGlobeTheme();
+  if(map2d)renderMap2D("2D map");
+});
 
 
 document.getElementById("q").addEventListener("input",e=>{filter=e.target.value.toLowerCase();paint();});
@@ -358,9 +480,10 @@ function apply(rowsIn){
   document.getElementById("sync").textContent="snapshot "+new Date().toLocaleTimeString();
   rebuildGlobeData();
   if(globe)globe.polygonsData(geoFeatures);
+  if(map2d)renderMap2D("2D map");
   updatePick();
   const note=document.getElementById("gnote");
-  if(note&&geoFeatures.length)note.textContent=geoFeatures.length+" countries · "+rows.length+" with stories";
+  if(note&&geoFeatures.length)note.textContent=geoFeatures.length+" countries · "+rows.length+" with stories"+(map2d?" · 2D MAP":"");
   paint();
   paintRegions();
 }
@@ -407,21 +530,17 @@ function apply(rowsIn){
 
 loadGeo();
 
-// explicit failure message if the globe never comes up
+// watchdog: if neither 3D nor 2D map came up, say why
 setTimeout(()=>{
-  if(globe)return;
+  if(globe||map2d)return;
   const fb=document.getElementById("globe-fallback");
   const note=document.getElementById("gnote");
-  let webgl=false;
-  try{
-    const c=document.createElement("canvas");
-    webgl=!!(c.getContext("webgl2")||c.getContext("webgl")||c.getContext("experimental-webgl"));
-  }catch(e){}
+  const webgl=hasWebGL();
   const msg=webgl
-    ? "3D globe could not start — the globe libraries did not load. Refresh the page."
-    : "WebGL is disabled in this browser. Enable hardware acceleration (chrome://settings/system), or use the country index below.";
-  if(fb)fb.innerHTML=`<div style="padding:1.2rem;max-width:560px;line-height:1.7"><b>GLOBE UNAVAILABLE</b><br/>${msg}</div>`;
-  if(note)note.textContent="globe unavailable";
+    ? "The map libraries did not load. Refresh the page, or use the country index below."
+    : "WebGL is disabled in this browser and the 2D map could not load. Use the country index below.";
+  if(fb)fb.innerHTML=`<div style="padding:1.2rem;max-width:560px;line-height:1.7"><b>MAP UNAVAILABLE</b><br/>${msg}</div>`;
+  if(note)note.textContent="map unavailable";
 },9000);</script>
 </body>
 </html>
