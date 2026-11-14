@@ -4,18 +4,22 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // WORLD COVERAGE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
 .covrow{display:grid;grid-template-columns:1fr minmax(80px,180px) 44px;gap:.5rem;align-items:center;padding:.3rem .35rem;border-bottom:1px dashed var(--line);cursor:pointer;font-size:.78rem}
 .covrow:hover{background:var(--sel)}
-.covrow .bar{height:10px;background:var(--fg);opacity:.8}
+.covrow .bar{height:10px;background:var(--fg);opacity:.8;display:block;min-width:3px}
 .covrow .n{text-align:right;font-variant-numeric:tabular-nums}
-.regrow{display:grid;grid-template-columns:1fr 40px;gap:.5rem;padding:.25rem .1rem;font-size:.74rem;border-bottom:1px dashed var(--line)}
-.regrow .n{text-align:right;color:var(--dim)}
+.regrow{display:grid;grid-template-columns:1fr minmax(50px,110px) 40px;gap:.5rem;align-items:center;padding:.3rem .1rem;font-size:.74rem;border-bottom:1px dashed var(--line);cursor:pointer}
+.regrow:hover{background:var(--sel)}
+.regrow .bar{height:8px;background:var(--dim);display:block;min-width:3px}
+.regrow .n{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:.7rem}
 .stat{border:1px solid var(--line);background:var(--panel);padding:.5rem .6rem}
 .stat .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
 .stat .v{font-size:1.15rem;margin-top:.1rem;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:.56rem;color:var(--dim);margin-top:.1rem}
 @media(max-width:800px){.grid>.panel{grid-column:span 12!important}}
 </style>
 </head>
@@ -28,15 +32,18 @@
   </div>
 
   <div class="statrow">
-    <div class="stat"><div class="k">COUNTRIES</div><div class="v num" id="s-countries">--</div></div>
-    <div class="stat"><div class="k">STORIES</div><div class="v num" id="s-stories">--</div></div>
-    <div class="stat"><div class="k">TOP COUNTRY</div><div class="v" id="s-top" style="font-size:.9rem">--</div></div>
-    <div class="stat"><div class="k">REGIONS</div><div class="v num" id="s-regions">--</div></div>
+    <div class="stat"><div class="k">COUNTRIES</div><div class="v num" id="s-countries">--</div><div class="sub" id="s-countries-sub">in the current wire</div></div>
+    <div class="stat"><div class="k">STORIES</div><div class="v num" id="s-stories">--</div><div class="sub" id="s-stories-sub">deduped headlines</div></div>
+    <div class="stat"><div class="k">TOP COUNTRY</div><div class="v" id="s-top" style="font-size:.9rem">--</div><div class="sub" id="s-top-sub">most stories</div></div>
+    <div class="stat"><div class="k">REGIONS</div><div class="v num" id="s-regions">--</div><div class="sub" id="s-regions-sub">feed groups</div></div>
   </div>
 
   <div class="grid">
     <div class="panel" style="grid-column:span 4">
-      <h2>REGION ROLLUP</h2>
+      <div class="spread" style="margin-bottom:.3rem">
+        <h2 style="margin:0">REGION ROLLUP</h2>
+        <span class="small muted">click to filter</span>
+      </div>
       <div id="regions"><div class="muted small">loading…</div></div>
     </div>
     <div class="panel" style="grid-column:span 8">
@@ -57,7 +64,7 @@
 <script>
 PN.mountHeader("world.html");
 
-let rows=[], filter="";
+let rows=[], regions=[], filter="", totalStories=0;
 
 document.getElementById("q").addEventListener("input",e=>{filter=e.target.value.toLowerCase();paint();});
 
@@ -68,37 +75,88 @@ function paint(){
   el.innerHTML=vis.map(r=>
     `<div class="covrow" data-c="${PN.esc(r.country)}">
       <span>${PN.esc(r.country)}</span>
-      <span><span class="bar" style="display:block;width:${Math.max(3,Math.round(r.stories/max*100))}%"></span></span>
+      <span><span class="bar" style="width:${Math.max(3,Math.round(r.stories/max*100))}%"></span></span>
       <span class="n">${r.stories}</span>
-    </div>`).join("")||'<div class="muted small" style="padding:.6rem">no matches.</div>';
+    </div>`).join("")||
+    '<div class="muted small" style="padding:.6rem">no countries match the filter.</div>';
   el.querySelectorAll(".covrow").forEach(n=>n.onclick=()=>{
     location.href="news.html?country="+encodeURIComponent(n.dataset.c);
   });
 }
 
-(async()=>{
-  try{
-    const d=await PN.fetchJSON("/news/countries",14000);
-    rows=d;
-    const total=d.reduce((a,b)=>a+b.stories,0);
-    document.getElementById("s-countries").textContent=d.length;
-    document.getElementById("s-stories").textContent=total;
-    document.getElementById("s-top").textContent=d.length?d[0].country+" ("+d[0].stories+")":"--";
-    document.getElementById("sync").textContent="snapshot "+new Date().toLocaleTimeString();
-    paint();
-  }catch(e){
-    document.getElementById("countries").innerHTML='<div class="muted small" style="padding:.6rem">coverage endpoint unavailable.</div>';
-  }
-})();
+function paintRegions(){
+  const el=document.getElementById("regions");
+  const max=Math.max(...regions.map(r=>r.stories),1);
+  el.innerHTML=regions.map(r=>
+    `<div class="regrow" data-r="${PN.esc(r.region)}">
+      <span>${PN.esc(r.region)}</span>
+      <span><span class="bar" style="width:${Math.max(3,Math.round(r.stories/max*100))}%"></span></span>
+      <span class="n">${r.stories}</span>
+    </div>`).join("")||'<div class="muted small">no regions.</div>';
+  el.querySelectorAll(".regrow").forEach(n=>n.onclick=()=>{
+    location.href="news.html?region="+encodeURIComponent(n.dataset.r);
+  });
+}
 
-/* region rollup from the story stream */
-PN.loadStories().then(d=>{
-  const reg={};
-  d.forEach(s=>{const c=s.category||"UNKNOWN";reg[c]=(reg[c]||0)+1;});
-  document.getElementById("s-regions").textContent=Object.keys(reg).length;
-  document.getElementById("regions").innerHTML=Object.entries(reg).sort((a,b)=>b[1]-a[1]).map(([c,n])=>
-    `<div class="regrow"><span>${PN.esc(c)}</span><span class="n">${n}</span></div>`).join("")||'<div class="muted small">no data</div>';
-});
+function apply(rowsIn){
+  rows=rowsIn.slice().sort((a,b)=>b.stories-a.stories||a.country.localeCompare(b.country));
+  totalStories=rows.reduce((a,b)=>a+b.stories,0);
+  const regionMap={};
+  rows.forEach(r=>{ regionMap[r.region||"UNKNOWN"]=(regionMap[r.region||"UNKNOWN"]||0)+r.stories; });
+  regions=Object.entries(regionMap).map(([region,stories])=>({region,stories}))
+    .sort((a,b)=>b.stories-a.stories||a.region.localeCompare(b.region));
+
+  document.getElementById("s-countries").textContent=rows.length;
+  document.getElementById("s-stories").textContent=totalStories;
+  document.getElementById("s-top").textContent=rows.length?rows[0].country+" ("+rows[0].stories+")":"--";
+  document.getElementById("s-regions").textContent=regions.length;
+  document.getElementById("s-top-sub").textContent=rows.length?Math.round(rows[0].stories/Math.max(totalStories,1)*100)+"% of the wire":"—";
+  document.getElementById("s-countries-sub").textContent=rows.length+" distinct datelines";
+  document.getElementById("s-regions-sub").textContent=(rows.length?Math.round(totalStories/rows.length):0)+" stories / country avg";
+  document.getElementById("sync").textContent="snapshot "+new Date().toLocaleTimeString();
+  paint();
+  paintRegions();
+}
+
+(async()=>{
+  // The world page is driven by the same quick cache the rest of the dash uses.
+  // If that cache is cold, /news/countries now warms it and returns the same shape.
+  let stories=null, serverRows=null;
+  const [q, s] = await Promise.allSettled([
+    PN.fetchJSON("/news/quick?limit=250",25000),
+    PN.fetchJSON("/news/countries",25000)
+  ]);
+  if(q.status==="fulfilled" && Array.isArray(q.value) && q.value.length) stories=q.value;
+  if(s.status==="fulfilled" && Array.isArray(s.value)) serverRows=s.value;
+
+  if(stories){
+    const map={};
+    stories.forEach(st=>{
+      const country=(st.country||"Unknown").trim()||"Unknown";
+      const region=(st.category||"UNKNOWN").toUpperCase();
+      if(!map[country]) map[country]={country,region,stories:0};
+      map[country].stories++;
+      if(map[country].region==="UNKNOWN"&&region!=="UNKNOWN") map[country].region=region;
+    });
+    apply(Object.values(map));
+    return;
+  }
+
+  if(serverRows && serverRows.length){
+    apply(serverRows.map(r=>({country:r.country,region:"UNKNOWN",stories:r.stories})));
+    return;
+  }
+
+  // Last resort: use the shared loader (it has its own mock fallback).
+  const d=await PN.loadStories();
+  const map={};
+  d.forEach(st=>{
+    const country=(st.country||"Unknown").trim()||"Unknown";
+    if(!map[country]) map[country]={country,region:(st.category||"UNKNOWN").toUpperCase(),stories:0};
+    map[country].stories++;
+  });
+  apply(Object.values(map));
+})();
 </script>
 </body>
 </html>

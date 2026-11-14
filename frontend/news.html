@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // NEWS READER</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
 #q{flex:1;min-width:140px;max-width:340px}
@@ -24,7 +25,27 @@
   color:var(--bg);background:var(--dim);padding:.05rem .25rem}
 .line-item .star{color:var(--hi);margin-right:.3rem}
 #readerpane{font-size:14px}
-@media(max-width:860px){#q{max-width:none}}
+
+/* reader control bar: three tidy segmented groups instead of a button pile */
+.controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:stretch;justify-content:space-between;
+  border-top:1px dashed var(--line);padding:.7rem 0 .25rem;margin-top:.8rem}
+.ctlgroup{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--panel)}
+.ctlgroup button{border:0;border-right:1px solid var(--line);background:transparent;
+  padding:.38rem .7rem;font-size:.64rem;letter-spacing:1px;white-space:nowrap}
+.ctlgroup button:last-child{border-right:0}
+.ctlgroup button:hover{background:var(--sel)}
+.ctlgroup button:active{background:var(--fg);color:var(--bg)}
+.ctlgroup button.primary{color:var(--hi)}
+.ctlgroup .pos{display:flex;align-items:center;padding:0 .6rem;color:var(--dim);
+  font-size:.62rem;letter-spacing:1px;border-right:1px solid var(--line);
+  font-variant-numeric:tabular-nums;min-width:64px;justify-content:center}
+.ctlgroup .ctllabel{display:flex;align-items:center;padding:0 .5rem;color:var(--dim);
+  font-size:.55rem;letter-spacing:1.6px;border-right:1px solid var(--line)}
+@media(max-width:860px){
+  #q{max-width:none}
+  .controls{justify-content:flex-start}
+  .ctlgroup{flex:1 1 auto;justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -58,7 +79,7 @@ try{readSet=new Set(JSON.parse(localStorage.getItem(KEY_READ)||"[]"));}catch(e){
 let savedSet=new Set();
 try{savedSet=new Set(JSON.parse(localStorage.getItem(KEY_SAVED)||"[]"));}catch(e){}
 let fs=Number(localStorage.getItem(KEY_FS)||14);
-let stories=[], view=[], sel=-1, query="", sector="ALL", unreadOnly=false, savedOnly=false;
+let stories=[], view=[], sel=-1, query="", sector="ALL", region="", unreadOnly=false, savedOnly=false;
 let speaking=false, fullText="", artSeq=0;
 let bodyHits=new Set(), searchSeq=0, searchTimer=null;
 const ART_CACHE=new Map();
@@ -67,6 +88,7 @@ const params=new URLSearchParams(location.search);
 if(params.get("country")){query=params.get("country");document.getElementById("q").value=query;}
 if(params.get("q")){query=params.get("q");document.getElementById("q").value=query;}
 if(params.get("sector")){sector=params.get("sector").toUpperCase();}
+if(params.get("region")){region=params.get("region").toUpperCase();}
 if(params.get("saved")==="1"){savedOnly=true;document.getElementById("saved-only").checked=true;}
 
 const listpane=document.getElementById("listpane");
@@ -93,6 +115,7 @@ function recalc(){
   const deep=q.length>=3;
   view=stories.filter(s=>{
     if(sector!=="ALL"&&(s.sector||"GENERAL").toUpperCase()!==sector)return false;
+    if(region&&(s.category||"UNKNOWN").toUpperCase()!==region)return false;
     if(unreadOnly&&isRead(s))return false;
     if(savedOnly&&!isSaved(s))return false;
     if(!q)return true;
@@ -104,6 +127,7 @@ function recalc(){
   const savedCount=stories.filter(isSaved).length;
   document.getElementById("read-progress").textContent=
     `${view.length}/${stories.length} shown · ${unread} unread`+
+    (region?` · ${region}`:"")+
     (savedOnly?` · ${savedCount} saved`:"")+
     (deep&&bodyHits.size?` · ${bodyHits.size} body hits`:"");
   renderList();
@@ -191,32 +215,30 @@ function open(i,opts){
       ${intro}
       <div class="xbody" id="xbody"><div class="xload">▚ extracting article body from ${PN.esc(s.source||"source")}…</div></div>
       <div class="controls">
-        <button id="c-prev">[ ← PREV ]</button>
-        <button id="c-next">[ NEXT → ]</button>
-        <button id="c-src">[ OPEN SOURCE ↗ ]</button>
-        <button id="c-save">${isSaved(s)?"[ ★ SAVED ]":"[ ☆ SAVE ]"}</button>
-        <button id="c-tts">[ READ ALOUD ]</button>
-        <button id="c-copy">[ COPY LINK ]</button>
-        <button id="c-unread">[ MARK UNREAD ]</button>
-        <button id="c-fsdown" title="smaller">[ A− ]</button>
-        <button id="c-fsup" title="bigger">[ A+ ]</button>
-        <span class="pos" id="c-pos">${String(i+1).padStart(2,"0")} / ${String(view.length).padStart(2,"0")}</span>
+        <div class="ctlgroup">
+          <button id="c-prev" title="previous story (K)">← PREV</button>
+          <span class="pos" id="c-pos">${String(i+1).padStart(2,"0")} / ${String(view.length).padStart(2,"0")}</span>
+          <button id="c-next" title="next story (J)">NEXT →</button>
+        </div>
+        <div class="ctlgroup">
+          <button id="c-save" class="primary">${isSaved(s)?"★ SAVED":"☆ SAVE"}</button>
+          <button id="c-tts">READ ALOUD</button>
+          <button id="c-copy">COPY LINK</button>
+        </div>
+        <div class="ctlgroup">
+          <span class="ctllabel">TEXT</span>
+          <button id="c-fsdown" title="smaller text">A−</button>
+          <button id="c-fsup" title="larger text">A+</button>
+        </div>
       </div>
       <div class="note" id="xnote">READER · feed summary above · extracting full article text…</div>
     </article>`;
   reader.querySelector("#c-prev").onclick=()=>open(i-1);
   reader.querySelector("#c-next").onclick=()=>open(i+1);
-  reader.querySelector("#c-src").onclick=()=>{
-    if(s.link)window.open(s.link,"_blank","noopener");
-    else PN.toast("demo: mock story has no source URL");
-  };
   reader.querySelector("#c-save").onclick=()=>toggleSave(s);
   reader.querySelector("#c-copy").onclick=async()=>{
     try{await navigator.clipboard.writeText(s.link||s.title);PN.toast("link copied");}
     catch(e){PN.toast("clipboard blocked");}
-  };
-  reader.querySelector("#c-unread").onclick=()=>{
-    readSet.delete(keyOf(s));saveRead();renderList();PN.toast("marked unread");
   };
   reader.querySelector("#c-fsdown").onclick=()=>{fs=Math.max(11,fs-1);applyFs();};
   reader.querySelector("#c-fsup").onclick=()=>{fs=Math.min(22,fs+1);applyFs();};
@@ -225,10 +247,10 @@ function open(i,opts){
     try{
       const u=new SpeechSynthesisUtterance(s.title+". "+(fullText||sum));
       u.rate=1;u.pitch=1;
-      u.onend=()=>{speaking=false;const b=reader.querySelector("#c-tts");if(b)b.textContent="[ READ ALOUD ]";};
+      u.onend=()=>{speaking=false;const b=reader.querySelector("#c-tts");if(b)b.textContent="READ ALOUD";};
       speechSynthesis.cancel();speechSynthesis.speak(u);
       speaking=true;PN.toast(fullText?"reading full text aloud":"reading summary aloud");
-      reader.querySelector("#c-tts").textContent="[ STOP ]";
+      reader.querySelector("#c-tts").textContent="■ STOP";
     }catch(e){PN.toast("speech unavailable");}
   };
   reader.querySelector("#c-pos").textContent=String(i+1).padStart(2,"0")+" / "+String(view.length).padStart(2,"0");
@@ -253,7 +275,7 @@ function toggleSave(s){
     PN.toast("saved for later");
   }
   const b=reader.querySelector("#c-save");
-  if(b)b.textContent=isSaved(s)?"[ ★ SAVED ]":"[ ☆ SAVE ]";
+  if(b)b.textContent=isSaved(s)?"★ SAVED":"☆ SAVE";
   recalc();
 }
 
@@ -324,7 +346,7 @@ function failExtract(gen,msg){
   if(gen!==artSeq)return;
   const box=document.getElementById("xbody");
   if(box)box.innerHTML=`<p class="xfail">no readable article body could be extracted from this source.<br/>
-    <span class="small">${PN.esc(msg||"publisher blocks crawlers, or the page is JS-only")} — the feed summary above is what the wire exposes. use OPEN SOURCE ↗ for the full story.</span></p>`;
+    <span class="small">${PN.esc(msg||"publisher blocks crawlers, or the page is JS-only")} — the feed summary above is what the wire exposes. open the story on the publisher site for the full text.</span></p>`;
   const note=document.getElementById("xnote");
   if(note)note.textContent="FEED SUMMARY ONLY · extraction unavailable";
 }
@@ -343,7 +365,7 @@ function openFromHash(){
   if(idx<0){
     // the linked story may be filtered out — relax filters once
     query="";document.getElementById("q").value="";
-    sector="ALL";unreadOnly=false;savedOnly=false;
+    sector="ALL";region="";unreadOnly=false;savedOnly=false;
     document.getElementById("unread-only").checked=false;
     document.getElementById("saved-only").checked=false;
     sectors();recalc();

@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // SPORTS</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:.7rem}
@@ -25,7 +26,29 @@
 .tag.red{color:var(--red);border-color:var(--red)}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;animation:p 1.2s infinite}
 @keyframes p{0%,100%{opacity:1}50%{opacity:.2}}
-#stand-table td img{width:20px;height:20px;object-fit:contain;vertical-align:-4px;margin-right:.3rem}
+
+/* section tabs */
+.sectabs{display:flex;gap:.35rem;margin:.75rem 0 0;border-bottom:1px solid var(--dim)}
+.sectabs button{border:1px solid var(--line);border-bottom:0;background:var(--panel);
+  padding:.42rem .85rem;font-size:.66rem;letter-spacing:1.4px;margin-bottom:-1px}
+.sectabs button.act{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sectabs button:hover:not(.act){background:var(--sel)}
+.sectabs .meta{margin-left:auto;align-self:center;font-size:.6rem;color:var(--dim);letter-spacing:1px;padding-bottom:.3rem}
+.sect{animation:secin .18s ease}
+@keyframes secin{from{opacity:.35}to{opacity:1}}
+
+/* standings: groups side by side so NBA East/West needs no scrolling */
+#stand-table{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:.8rem;margin-top:.6rem}
+.sgroup{min-width:0}
+.sgroup h3{margin:0 0 .25rem;font-size:.6rem;letter-spacing:1.8px;color:var(--hi);font-weight:400;text-transform:uppercase;
+  border-bottom:1px solid var(--dim);padding-bottom:.25rem}
+.sgroup .tbl{font-size:.7rem}
+.sgroup .tbl th{padding:.24rem .28rem}
+.sgroup .tbl td{padding:.24rem .28rem}
+#stand-table td img{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:.3rem}
+.sgroup .rk{color:var(--dim);text-align:right;width:1.6rem}
+.sgroup .tm{max-width:160px;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){.sectabs .meta{display:none}}
 </style>
 </head>
 <body>
@@ -36,36 +59,50 @@
     <div class="row"><span class="small muted" id="sp-count">-- events</span></div>
   </div>
 
-  <div class="panel" style="margin-bottom:.7rem">
-    <div class="spread">
-      <div class="chips" id="leagues"></div>
-      <div class="row">
-        <label class="small muted row" style="gap:.3rem"><input type="checkbox" id="live-only"/> LIVE ONLY</label>
-        <button id="refresh">[ REFRESH ]</button>
-      </div>
-    </div>
+  <div class="sectabs" id="stabs">
+    <button data-tab="sb" class="act">[ SCOREBOARD ]</button>
+    <button data-tab="st">[ STANDINGS ]</button>
+    <span class="meta" id="tab-meta">live + finals</span>
   </div>
 
-  <div class="cards" id="cards"><div class="panel muted">syncing scoreboard...</div></div>
-
-  <div class="panel" style="margin-top:.8rem">
-    <div class="spread">
-      <h2>STANDINGS</h2>
-      <div class="row">
-        <select id="st-league">
-          <option value="basketball|nba">NBA</option>
-          <option value="football|nfl">NFL</option>
-          <option value="baseball|mlb">MLB</option>
-          <option value="hockey|nhl">NHL</option>
-          <option value="soccer|eng.1">PREMIER LEAGUE</option>
-          <option value="soccer|esp.1">LA LIGA</option>
-          <option value="soccer|uefa.champions">CHAMPIONS LEAGUE</option>
-        </select>
-        <button id="st-load">[ LOAD TABLE ]</button>
+  <section class="sect" id="sec-sb">
+    <div class="panel" style="margin-bottom:.7rem">
+      <div class="spread">
+        <div class="chips" id="leagues"></div>
+        <div class="row">
+          <label class="small muted row" style="gap:.3rem"><input type="checkbox" id="live-only"/> LIVE ONLY</label>
+          <button id="refresh">[ REFRESH ]</button>
+        </div>
       </div>
     </div>
-    <div id="stand-table" class="scrollx" style="margin-top:.6rem"><p class="muted small">pick a league and load.</p></div>
-  </div>
+    <div class="cards" id="cards"><div class="panel muted">syncing scoreboard...</div></div>
+  </section>
+
+  <section class="sect" id="sec-st" style="display:none">
+    <div class="panel">
+      <div class="spread">
+        <div class="row">
+          <span class="small muted">LEAGUE</span>
+          <select id="st-league">
+            <option value="basketball|nba">NBA</option>
+            <option value="football|nfl">NFL</option>
+            <option value="baseball|mlb">MLB</option>
+            <option value="hockey|nhl">NHL</option>
+            <option value="basketball|wnba">WNBA</option>
+            <option value="soccer|eng.1">PREMIER LEAGUE</option>
+            <option value="soccer|esp.1">LA LIGA</option>
+            <option value="soccer|ger.1">BUNDESLIGA</option>
+            <option value="soccer|ita.1">SERIE A</option>
+            <option value="soccer|fra.1">LIGUE 1</option>
+            <option value="football|college-football">COLLEGE FOOTBALL</option>
+          </select>
+          <button id="st-load">[ LOAD TABLE ]</button>
+        </div>
+        <span class="small muted" id="st-season">—</span>
+      </div>
+      <div id="stand-table"><p class="muted small">loading standings…</p></div>
+    </div>
+  </section>
 </main>
 <div class="foot">PROTON-NEWS TERMINAL v2 · <a href="index.html">← DASHBOARD</a></div>
 
@@ -74,7 +111,18 @@
 PN.mountHeader("sports.html");
 
 const LEAGUES=[["ALL","ALL"],["nba","NBA"],["nfl","NFL"],["mlb","MLB"],["nhl","NHL"],["eng.1","EPL"],["esp.1","LA LIGA"],["uefa.champions","UCL"]];
-let league="ALL", liveOnly=false, cache=[];
+let league="ALL", liveOnly=false, cache=[], stLoaded=false;
+
+/* ---------- section tabs ---------- */
+const tabMeta={sb:"live + finals",st:"league tables · conference split"};
+document.querySelectorAll("#stabs button").forEach(b=>b.onclick=()=>{
+  const tab=b.dataset.tab;
+  document.querySelectorAll("#stabs button").forEach(x=>x.classList.toggle("act",x===b));
+  document.getElementById("sec-sb").style.display=tab==="sb"?"":"none";
+  document.getElementById("sec-st").style.display=tab==="st"?"":"none";
+  document.getElementById("tab-meta").textContent=tabMeta[tab]||"";
+  if(tab==="st"&&!stLoaded) loadStandings();
+});
 
 document.getElementById("leagues").innerHTML=LEAGUES.map(([v,l],i)=>
   `<button data-l="${v}" class="${i===0?"act":""}">${l}</button>`).join("");
@@ -137,26 +185,62 @@ async function load(){
   }
 }
 
-document.getElementById("st-load").onclick=async()=>{
+/* ---------- standings ---------- */
+function standingsCols(lg){
+  const soccer=["eng.1","esp.1","ger.1","ita.1","fra.1","usa.1","uefa.champions"].includes(lg);
+  if(soccer) return ["#","TEAM","W","D","L","PTS","GD","STRK"];
+  if(lg==="nhl") return ["#","TEAM","W","L","OTL","PTS","STRK"];
+  return ["#","TEAM","W","L","PCT","GB","STRK"];
+}
+
+function groupTable(group,lg){
+  const cols=standingsCols(lg);
+  const isSoccer=cols.includes("GD");
+  const head=cols.map(c=>`<th class="${c==="#"?"rk":""}">${c}</th>`).join("");
+  const rows=group.rows.map((r,i)=>{
+    const rank=r.rank||r.seed||(i+1);
+    let cells="";
+    if(isSoccer){
+      cells=`<td>${PN.esc(r.w)}</td><td>${PN.esc(r.t||"0")}</td><td>${PN.esc(r.l)}</td>
+             <td><b>${PN.esc(r.pts||"—")}</b></td><td>${PN.esc(r.diff||"—")}</td><td>${PN.esc(r.streak||"—")}</td>`;
+    }else if(lg==="nhl"){
+      cells=`<td>${PN.esc(r.w)}</td><td>${PN.esc(r.l)}</td><td>${PN.esc(r.t||r.otl||"0")}</td>
+             <td><b>${PN.esc(r.pts||"—")}</b></td><td>${PN.esc(r.streak||"—")}</td>`;
+    }else{
+      cells=`<td>${PN.esc(r.w)}</td><td>${PN.esc(r.l)}</td><td>${PN.esc(r.pct||"—")}</td>
+             <td>${PN.esc(r.gb||"—")}</td><td>${PN.esc(r.streak||"—")}</td>`;
+    }
+    return `<tr>
+      <td class="rk">${PN.esc(rank)}</td>
+      <td class="tm">${r.logo?`<img src="${PN.esc(r.logo)}" alt="" loading="lazy"/>`:""}<b>${PN.esc(r.abbr)}</b> <span class="muted">${PN.esc(r.team)}</span></td>
+      ${cells}
+    </tr>`;
+  }).join("");
+  return `<div class="sgroup"><h3>${PN.esc(group.name)}</h3>
+    <table class="tbl"><tr>${head}</tr>${rows}</table></div>`;
+}
+
+async function loadStandings(){
   const el=document.getElementById("stand-table");
   const [sport,lg]=document.getElementById("st-league").value.split("|");
+  stLoaded=true;
   el.innerHTML='<p class="muted small">loading table...</p>';
+  document.getElementById("st-season").textContent="fetching…";
   try{
     const d=await PN.fetchJSON(`/sports/standings?sport=${encodeURIComponent(sport)}&league=${encodeURIComponent(lg)}`,18000);
     if(!d.groups||!d.groups.length)throw new Error("no groups");
-    el.innerHTML=d.groups.map(g=>`
-      <h3 class="small hi" style="margin:.5rem 0 .2rem;letter-spacing:1px">${PN.esc(g.name)}</h3>
-      <table class="tbl"><tr><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>T</th><th>PTS</th><th>PCT</th><th>GB</th><th>STRK</th></tr>
-      ${g.rows.map((r,i)=>`<tr>
-        <td class="muted">${r.rank||i+1}</td>
-        <td>${r.logo?`<img src="${PN.esc(r.logo)}" alt="" loading="lazy"/>`:""}<b>${PN.esc(r.abbr)}</b> <span class="muted">${PN.esc(r.team)}</span></td>
-        <td>${PN.esc(r.w)}</td><td>${PN.esc(r.l)}</td><td>${PN.esc(r.t||"—")}</td>
-        <td>${PN.esc(r.pts||"—")}</td><td>${PN.esc(r.pct||"—")}</td><td>${PN.esc(r.gb||"—")}</td><td>${PN.esc(r.streak||"—")}</td>
-      </tr>`).join("")}</table>`).join("");
+    document.getElementById("st-season").textContent=
+      (d.season?String(d.season)+" season · ":"")+d.groups.length+" table"+(d.groups.length===1?"":"s");
+    el.innerHTML=d.groups.map(g=>groupTable(g,lg)).join("");
   }catch(e){
+    document.getElementById("st-season").textContent="unavailable";
     el.innerHTML='<p class="muted small">standings unavailable for this league right now.</p>';
+    stLoaded=false;
   }
-};
+}
+
+document.getElementById("st-load").onclick=loadStandings;
+document.getElementById("st-league").onchange=()=>{stLoaded=false;loadStandings();};
 
 load();
 </script>

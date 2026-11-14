@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // AIRSPACE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
@@ -12,8 +13,14 @@
 .stat .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
 .stat .v{font-size:1.15rem;margin-top:.1rem;font-variant-numeric:tabular-nums}
 
-/* ---------- real map ---------- */
+/* ---------- real map / 3d globe ---------- */
 #map{height:460px;border:1px solid var(--dim);background:var(--bg2);z-index:0}
+#globe{height:460px;border:1px solid var(--dim);background:var(--bg2);position:relative;overflow:hidden;cursor:grab}
+#globe:active{cursor:grabbing}
+#globe canvas{display:block}
+#globe .scene-tooltip{background:var(--bg)!important;color:var(--fg)!important;border:1px solid var(--fg);
+  padding:.35rem .55rem;font-family:"Courier New",ui-monospace,monospace!important;font-size:.64rem!important;
+  line-height:1.5;box-shadow:0 0 18px var(--glow);text-shadow:none}
 .leaflet-container{background:var(--bg2);font-family:inherit;font-size:.68rem;outline:none}
 .leaflet-container a{color:var(--fg)}
 .leaflet-control-attribution{background:var(--bg)!important;color:var(--dim)!important;font-size:.55rem!important}
@@ -79,7 +86,7 @@
 .warnline{border:1px dashed var(--amber);color:var(--amber);font-size:.66rem;padding:.35rem .55rem;margin-bottom:.5rem;line-height:1.5}
 @media(max-width:1000px){
   .grid>.panel{grid-column:span 12!important}
-  #map,.mapbox{height:340px}
+  #map,#globe,.mapbox{height:340px}
 }
 </style>
 </head>
@@ -87,7 +94,7 @@
 <header id="top"></header>
 <main class="wrap">
   <div class="hero spread">
-    <div><h1>&gt; AIRSPACE // OPENSKY</h1><p>LIVE ADS-B ON A REAL MAP · FILTER · CLICK A PLANE</p></div>
+    <div><h1>&gt; AIRSPACE // OPENSKY</h1><p>LIVE ADS-B ON A SPINNING 3D GLOBE · FILTER · CLICK A PLANE</p></div>
     <div class="row">
       <span class="small muted" id="src">opensky network</span>
       <label class="small muted row" style="gap:.3rem"><input type="checkbox" id="auto"/> AUTO</label>
@@ -108,10 +115,20 @@
   <div class="grid">
     <div class="panel" style="grid-column:span 8">
       <div class="spread" style="margin-bottom:.5rem">
-        <h2 style="margin:0">GLOBAL SNAPSHOT</h2>
-        <span class="small muted" id="note">initialising map…</span>
+        <div class="row">
+          <h2 style="margin:0">GLOBAL SNAPSHOT</h2>
+          <div class="chips" id="viewtabs">
+            <button data-v="globe" class="act">[ GLOBE 3D ]</button>
+            <button data-v="map">[ MAP ]</button>
+          </div>
+        </div>
+        <div class="row">
+          <label class="small muted row" style="gap:.3rem"><input type="checkbox" id="spin" checked/> SPIN</label>
+          <span class="small muted" id="note">initialising globe…</span>
+        </div>
       </div>
-      <div id="map"></div>
+      <div id="globe"></div>
+      <div id="map" style="display:none"></div>
       <div class="legend">
         <span class="l-low">BELOW 12K</span>
         <span class="l-mid">12–30K</span>
@@ -172,13 +189,17 @@
 <div class="foot">PROTON-NEWS TERMINAL v2 · <a href="index.html">← DASHBOARD</a></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three-globe@2.31.0/dist/three-globe.min.js"></script>
+<script src="https://unpkg.com/globe.gl@2.32.0/dist/globe.gl.min.js"></script>
 <script src="dash.js"></script>
 <script>
 PN.mountHeader("planes.html");
 
 const CARTO_KEY="cb1_4lrj_1_162cf801d50f5f196ee274e2";
 const AUTO_MS=900000;
-const state={all:[],view:[],selected:null,q:"",minAlt:0,sortBy:"alt",airOnly:false,mock:false,timer:null};
+const state={all:[],view:[],selected:null,q:"",minAlt:0,sortBy:"alt",airOnly:false,mock:false,timer:null,
+  mode:(typeof Globe!=="undefined"?"globe":"map")};
 
 /* clearly-labelled fallback snapshot so the page is never blank */
 const MOCK=[
@@ -201,9 +222,22 @@ const MOCK=[
 ].map(p=>({...p,__mock:true}));
 
 let map=null,tiles=null,layer=null,fallback=false;
+let globe=null,globeBusy=false;
 const markerByKey=new Map();
 
 function themeId(){return document.documentElement.dataset.theme||"mono";}
+function cssVar(name,fallbackVal){
+  const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v||fallbackVal;
+}
+function hexToRgb(hex){
+  let h=String(hex||"").replace("#","").trim();
+  if(h.length===3)h=h.split("").map(c=>c+c).join("");
+  const n=parseInt(h,16);
+  if(!isFinite(n)||h.length!==6)return [232,232,232];
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function rgba(hex,a){const c=hexToRgb(hex);return `rgba(${c[0]},${c[1]},${c[2]},${a})`;}
 function tileUrl(){
   const style=themeId()==="mono"?"light_all":"dark_all";
   return "https://{s}.basemaps.cartocdn.com/"+style+"/{z}/{x}/{y}{r}.png?key="+CARTO_KEY;
@@ -227,6 +261,156 @@ function initMap(){
   document.addEventListener("pn-theme",()=>{if(tiles)tiles.setUrl(tileUrl());});
   setTimeout(()=>{try{map.invalidateSize();}catch(e){}},250);
 }
+
+/* ---------- 3d globe ---------- */
+let PAL={fg:"#e8e8e8",dim:"#7e7e7e",red:"#ff6b6b",amber:"#ffcc66",hi:"#ffffff",bg:"#0a0a0a"};
+
+function refreshPalette(){
+  PAL={
+    fg:cssVar("--fg","#e8e8e8"),
+    dim:cssVar("--dim","#7e7e7e"),
+    red:cssVar("--red","#ff6b6b"),
+    amber:cssVar("--amber","#ffcc66"),
+    hi:cssVar("--hi","#ffffff"),
+    bg:cssVar("--bg","#0a0a0a")
+  };
+}
+
+function pointColor(f){
+  if(f.on_ground)return PAL.amber;
+  const alt=Number(f.altitude_ft)||0;
+  if(alt>=30000)return PAL.red;
+  if(alt>=12000)return PAL.fg;
+  return PAL.dim;
+}
+
+function sizeGlobe(){
+  if(!globe)return;
+  const el=document.getElementById("globe");
+  try{globe.width(el.clientWidth||900).height(el.clientHeight||460);}catch(e){}
+}
+
+function applyGlobeTheme(){
+  if(!globe)return;
+  refreshPalette();
+  try{
+    globe.backgroundColor(PAL.bg);
+    const mat=globe.globeMaterial();
+    if(mat){
+      // texture-driven globe material has no .color, so tint via emissive
+      if(mat.color&&mat.color.setStyle)mat.color.setStyle(PAL.fg);
+      if(mat.emissive&&mat.emissive.setStyle){
+        mat.emissive.setStyle(PAL.fg);
+        mat.emissiveIntensity=0.22;
+      }
+      mat.shininess=8;
+    }
+  }catch(e){}
+  try{
+    globe.atmosphereColor(PAL.fg);
+    globe.atmosphereAltitude(0.18);
+  }catch(e){}
+  try{
+    globe.pointColor(pointColor);
+    globe.ringColor(()=>t=>rgba(PAL.hi,Math.max(0,1-t)));
+    globe.ringsData(state.selected?[state.selected]:[]);
+  }catch(e){}
+}
+
+function initGlobe(){
+  if(globe)return true;
+  if(typeof Globe==="undefined")return false;
+  const el=document.getElementById("globe");
+  try{
+    globe=Globe()(el)
+      .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-day.jpg")
+      .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
+      .showAtmosphere(true)
+      .pointLat("lat")
+      .pointLng("lon")
+      .pointAltitude(f=>f.on_ground?0.004:Math.min(0.16,0.01+((Number(f.altitude_ft)||0)/40000)*0.11))
+      .pointRadius(f=>f.on_ground?0.12:0.19)
+      .pointResolution(3)
+      .pointsMerge(false)
+      .pointColor(pointColor)
+      .pointLabel(f=>`<b>${PN.esc(f.callsign||"UNKNOWN")}</b><br/>`+
+        `${PN.esc(f.country||"—")}<br/>`+
+        `${f.on_ground?"ON GROUND":PN.fmtNum(f.altitude_ft||0,0)+" ft"} · `+
+        `${f.velocity_kts!=null?PN.fmtNum(f.velocity_kts,0)+" kt":"—"}`)
+      .onPointClick(f=>selectPlane(f,true))
+      .ringLat("lat")
+      .ringLng("lon")
+      .ringColor(()=>t=>rgba(PAL.hi,Math.max(0,1-t)))
+      .ringMaxRadius(4)
+      .ringPropagationSpeed(2.4)
+      .ringRepeatPeriod(900);
+    globe.pointsData([]).ringsData([]);
+    const ctrl=globe.controls();
+    ctrl.autoRotate=true;
+    ctrl.autoRotateSpeed=0.35;
+    ctrl.enableDamping=true;
+    ctrl.dampingFactor=0.08;
+    ctrl.rotateSpeed=0.55;
+    globe.pointOfView({lat:22,lng:5,altitude:2.1});
+    applyGlobeTheme();
+    window.addEventListener("resize",()=>{if(state.mode==="globe")sizeGlobe();});
+    return true;
+  }catch(e){
+    console.warn("globe init failed",e);
+    globe=null;
+    return false;
+  }
+}
+
+function paintGlobe(list){
+  if(!globe)return;
+  refreshPalette();
+  const shown=list.slice(0,1400);
+  globe.pointsData(shown);
+  globe.pointColor(pointColor);
+  globe.ringsData(state.selected?[state.selected]:[]);
+  sizeGlobe();
+}
+
+function updateNote(txt){
+  const el=document.getElementById("note");
+  if(!el)return;
+  el.textContent=state.mode==="globe"
+    ? "drag to spin · scroll to zoom · "+txt
+    : txt;
+}
+
+function setViewMode(mode){
+  if(mode==="globe"&&!initGlobe()){
+    mode="map";
+    PN.toast("3D globe unavailable — using the map");
+  }
+  state.mode=mode;
+  document.querySelectorAll("#viewtabs button").forEach(b=>
+    b.classList.toggle("act",b.dataset.v===mode));
+  const gEl=document.getElementById("globe");
+  const mEl=document.getElementById("map");
+  gEl.style.display=mode==="globe"?"":"none";
+  mEl.style.display=mode==="map"?"":"none";
+  document.getElementById("spin").disabled=mode!=="globe";
+  if(mode==="globe"&&globe){
+    sizeGlobe();
+    globe.controls().autoRotate=document.getElementById("spin").checked;
+    updateNote(state.mock?"simulated snapshot":state.all.length+" aircraft plotted");
+  }else{
+    if(!map&&!fallback)initMap();
+    if(map)setTimeout(()=>{try{map.invalidateSize();}catch(e){}},60);
+    updateNote(state.mock?"simulated snapshot":"live snapshot · positions approximate");
+  }
+  paint();
+}
+
+document.addEventListener("pn-theme",()=>{
+  refreshPalette();
+  if(tiles)tiles.setUrl(tileUrl());
+  if(globe)applyGlobeTheme();
+  if(state.mode==="globe")paintGlobe(state.view);
+});
 
 function popupHTML(f){
   const alt=f.on_ground?"ON GROUND":(f.altitude_ft!=null?PN.fmtNum(f.altitude_ft,0)+" ft / "+PN.fmtNum(f.altitude_m,0)+" m":"—");
@@ -302,17 +486,23 @@ function paint(){
     if(f)selectPlane(f,true);
   });
 
-  if(fallback)paintFallback(list);
-  else {
-    layer.clearLayers();
-    markerByKey.clear();
-    list.slice(0,700).forEach(f=>{
-      const m=buildMarker(f);
-      markerByKey.set(keyOf(f),m);
-      layer.addLayer(m);
-    });
-    if(state.selected)highlightSelected();
+  if(state.mode==="globe"&&globe){
+    paintGlobe(list);
+    return;
   }
+  if(!map&&!fallback)initMap();
+  if(fallback){
+    paintFallback(list);
+    return;
+  }
+  layer.clearLayers();
+  markerByKey.clear();
+  list.slice(0,700).forEach(f=>{
+    const m=buildMarker(f);
+    markerByKey.set(keyOf(f),m);
+    layer.addLayer(m);
+  });
+  if(state.selected)highlightSelected();
 }
 
 function paintFallback(list){
@@ -363,7 +553,12 @@ function selectPlane(f,pan){
     <div class="dhint">${f.on_ground?"this aircraft is on the ground.":"marker colour: "+(markerClass(f)==="high"?"above 30,000 ft":markerClass(f)==="mid"?"12,000–30,000 ft":"below 12,000 ft")}</div>`;
 
   highlightSelected();
-  if(pan&&map){
+  if(state.mode==="globe"&&globe){
+    try{
+      globe.ringsData([f]);
+      if(pan)globe.pointOfView({lat:Number(f.lat),lng:Number(f.lon),altitude:1.35},800);
+    }catch(e){}
+  }else if(pan&&map){
     try{
       map.setView([f.lat,f.lon],Math.max(map.getZoom(),4));
       const m=markerByKey.get(key);
@@ -404,13 +599,13 @@ async function load(){
     state.mock=false;
     setWarn("");
     document.getElementById("src").textContent="opensky network";
-    document.getElementById("note").textContent="live snapshot · "+new Date().toLocaleTimeString()+" · positions approximate";
+    updateNote("live snapshot · "+new Date().toLocaleTimeString()+" · positions approximate");
   }catch(e){
     state.all=MOCK.slice();
     state.mock=true;
     setWarn("OPENSKY UPLINK FAILED — showing a SIMULATED snapshot so the map stays usable. OpenSky is credit-limited; hit REFRESH in a minute.");
     document.getElementById("src").textContent="simulated";
-    document.getElementById("note").textContent="simulated snapshot · "+new Date().toLocaleTimeString();
+    updateNote("simulated snapshot · "+new Date().toLocaleTimeString());
   }finally{
     btn.disabled=false;btn.textContent="[ REFRESH ]";
   }
@@ -431,14 +626,25 @@ document.querySelectorAll("#sort button").forEach(b=>b.onclick=()=>{
   paint();
 });
 document.getElementById("refresh").onclick=load;
-document.getElementById("fit").onclick=()=>{if(map)map.setView([22,5],2);};
+document.getElementById("fit").onclick=()=>{
+  if(state.mode==="globe"&&globe){
+    globe.pointOfView({lat:22,lng:5,altitude:2.1},700);
+  }else if(map){
+    map.setView([22,5],2);
+  }
+};
+document.querySelectorAll("#viewtabs button").forEach(b=>b.onclick=()=>setViewMode(b.dataset.v));
+document.getElementById("spin").onchange=e=>{
+  if(globe)globe.controls().autoRotate=e.target.checked;
+};
 document.getElementById("auto").onchange=e=>{
   if(state.timer){clearInterval(state.timer);state.timer=null;}
   if(e.target.checked){state.timer=setInterval(load,AUTO_MS);PN.toast("auto refresh every 15 min");}
   else PN.toast("auto refresh off");
 };
 
-initMap();
+refreshPalette();
+setViewMode(state.mode);
 load();
 </script>
 </body>

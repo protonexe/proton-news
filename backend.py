@@ -452,10 +452,18 @@ def list_feeds():
 
 @app.get("/news/countries")
 def news_by_country():
-    data = _NEWS_CACHE.get("data") or []
+    # The dash world page warms _QUICK_CACHE, so the full cache is often empty.
+    data = _NEWS_CACHE.get("data")
+    if not data:
+        data = _QUICK_CACHE.get("data")
+    if not data:
+        try:
+            data = get_news_quick(120)
+        except Exception:
+            data = []
     counts: dict[str, int] = {}
-    for s in data:
-        c = s.get("country") or "Unknown"
+    for s in data or []:
+        c = (s.get("country") or "Unknown").strip() or "Unknown"
         counts[c] = counts.get(c, 0) + 1
     return [{"country": k, "stories": v} for k, v in sorted(counts.items(), key=lambda x: -x[1])]
 
@@ -766,17 +774,39 @@ def get_finance_indicators():
 
 @app.get("/weather/full")
 def get_weather_full(lat: float, lon: float):
-    """Fetches forecast, AQI, and UV index for a location."""
-    forecast_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto"
-    aqi_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide"
+    """Forecast + current conditions + hourly strip + AQI for one location."""
+    forecast_url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        # current_weather=true suppresses the richer `current` block, so only
+        # ask for the `current` variable set here.
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,"
+        "precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,"
+        "surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
+        "dew_point_2m,visibility"
+        "&hourly=temperature_2m,apparent_temperature,precipitation_probability,"
+        "precipitation,weather_code,wind_speed_10m,wind_gusts_10m,"
+        "relative_humidity_2m,uv_index,is_day"
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,"
+        "daylight_duration,uv_index_max,precipitation_probability_max,precipitation_sum,"
+        "wind_speed_10m_max,wind_gusts_10m_max"
+        "&timezone=auto&forecast_days=7"
+    )
+    aqi_url = (
+        "https://air-quality-api.open-meteo.com/v1/air-quality"
+        f"?latitude={lat}&longitude={lon}"
+        "&current=us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
+        "sulphur_dioxide,ozone,nitrogen_monoxide,dust,uv_index"
+        "&timezone=auto"
+    )
     data = {"forecast": {}, "aqi": {}, "location": {"lat": lat, "lon": lon}}
     try:
-        body = urllib.request.urlopen(forecast_url, timeout=10).read()
+        body = urllib.request.urlopen(forecast_url, timeout=12).read()
         data["forecast"] = json.loads(body)
     except Exception:
         pass
     try:
-        body = urllib.request.urlopen(aqi_url, timeout=10).read()
+        body = urllib.request.urlopen(aqi_url, timeout=12).read()
         data["aqi"] = json.loads(body)
     except Exception:
         pass
@@ -801,7 +831,6 @@ ESPN_SPORTS = [
     ("basketball", "mens-college-basketball"),
     ("mma", "ufc"),
     ("tennis", "atp"),
-    ("golf", "pga"),
 ]
 
 
@@ -921,10 +950,36 @@ def get_sports_standings(sport: str = "basketball", league: str = "nba"):
             m[s.get("name", "")] = str(v)
         return m
 
-    groups = []
-    for child in payload.get("children", []) or []:
+    def num(value):
+        try:
+            txt = str(value).strip().replace("%", "").replace("+", "")
+            if txt in ("", "-", "—", "None"):
+                return None
+            return float(txt)
+        except Exception:
+            return None
+
+    def order_key(row):
+        # ESPN ships rows in reverse (worst first). rank/seed is authoritative,
+        # then points, then win pct descending.
+        rank = num(row.get("rank"))
+        seed = num(row.get("playoffSeed"))
+        pts = num(row.get("pts")) or 0.0
+        pct = num(row.get("pct")) or 0.0
+        return (
+            rank if rank is not None else 1e9,
+            seed if seed is not None else 1e9,
+            -pts,
+            -pct,
+        )
+
+    def clean_name(name):
+        name = str(name or "Standings").strip()
+        return re.sub(r"^\d{4}(?:-\d{2})?\s+", "", name) or "Standings"
+
+    def build_group(name, entries):
         rows = []
-        for entry in ((child.get("standings") or {}).get("entries") or []):
+        for entry in entries or []:
             tm = entry.get("team") or {}
             sm = stat_map(entry)
             rows.append({
@@ -934,16 +989,38 @@ def get_sports_standings(sport: str = "basketball", league: str = "nba"):
                 "w": sm.get("wins", ""),
                 "l": sm.get("losses", ""),
                 "t": sm.get("ties", ""),
+                "otl": sm.get("otLosses") or sm.get("overtimeLosses", ""),
                 "pts": sm.get("points", ""),
                 "pct": sm.get("winPercent") or sm.get("leagueWinPercent", ""),
                 "gb": sm.get("gamesBehind", ""),
                 "streak": sm.get("streak", ""),
                 "rank": sm.get("rank", ""),
+                "seed": sm.get("playoffSeed", ""),
                 "gf": sm.get("pointsFor", ""),
                 "ga": sm.get("pointsAgainst", ""),
                 "diff": sm.get("pointDifferential") or sm.get("differential", ""),
             })
-        groups.append({"name": child.get("name", "Standings"), "rows": rows})
+        rows.sort(key=order_key)
+        return {"name": clean_name(name), "rows": rows}
+
+    groups = []
+
+    def walk(node):
+        entries = ((node.get("standings") or {}).get("entries") or [])
+        if entries:
+            groups.append(build_group(node.get("name"), entries))
+        for child in node.get("children") or []:
+            walk(child)
+
+    for child in payload.get("children") or []:
+        walk(child)
+
+    # Some leagues return a flat standings object with no conference split.
+    if not groups:
+        flat = ((payload.get("standings") or {}).get("entries") or [])
+        if flat:
+            groups.append(build_group(payload.get("name"), flat))
+
     return {"sport": sport, "league": league, "season": (payload.get("season") or {}).get("year"), "groups": groups}
 
 

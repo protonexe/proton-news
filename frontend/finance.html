@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // FINANCE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
 .qhead{display:flex;gap:1rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.4rem}
@@ -11,8 +12,8 @@
 .qhead .nm{font-size:.9rem;color:var(--hi)}
 .qhead .last{font-size:2rem;font-weight:bold}
 .qhead .chg{font-size:.9rem}
-.chart{border:1px solid var(--line);background:var(--panel);padding:.4rem;margin:.7rem 0}
-.chart svg{display:block;width:100%;height:300px}
+.chart{border:1px solid var(--line);background:var(--panel);padding:.4rem;margin:.7rem 0;position:relative}
+.chart svg{display:block;width:100%;height:300px;overflow:visible}
 .axis{font-size:.6rem;fill:var(--dim)}
 .statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem}
 .stat{border:1px solid var(--line);padding:.4rem .55rem;background:var(--panel)}
@@ -20,6 +21,19 @@
 .stat .v{font-size:.92rem;margin-top:.1rem;font-variant-numeric:tabular-nums}
 .crypto img{width:16px;height:16px;vertical-align:-3px;margin-right:.35rem;filter:grayscale(.2)}
 .pctpos{color:var(--hi)}.pctneg{color:var(--red)}
+
+/* section tabs: chart / crypto live inside the finance page */
+.sectabs{display:flex;gap:.35rem;margin:.75rem 0 0;border-bottom:1px solid var(--dim);padding-bottom:0}
+.sectabs button{border:1px solid var(--line);border-bottom:0;background:var(--panel);
+  padding:.42rem .85rem;font-size:.66rem;letter-spacing:1.4px;margin-bottom:-1px}
+.sectabs button.act{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sectabs button:hover:not(.act){background:var(--sel)}
+.sectabs .meta{margin-left:auto;align-self:center;font-size:.6rem;color:var(--dim);letter-spacing:1px;padding-bottom:.3rem}
+.sect{animation:secin .18s ease}
+@keyframes secin{from{opacity:.35}to{opacity:1}}
+
+/* chart draw animation */
+#c-line{stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:700px){.chart svg{height:220px}}
 </style>
 </head>
@@ -31,40 +45,57 @@
     <div class="small muted">source: yahoo finance + coingecko · 5m cache</div>
   </div>
 
-  <div class="panel">
-    <div class="row" style="margin-bottom:.6rem">
-      <input id="sym" type="text" placeholder="symbol e.g. NVDA" style="max-width:200px" autocomplete="off"/>
-      <button id="go">[ LOAD ]</button>
-      <div class="chips" id="quick"></div>
-    </div>
-    <div class="row" id="ranges">
-      <span class="small muted">RANGE</span>
-      <button data-r="1d" class="act">1D</button>
-      <button data-r="5d">5D</button>
-      <button data-r="1mo">1MO</button>
-      <button data-r="6mo">6MO</button>
-      <button data-r="1y">1Y</button>
-    </div>
-    <div class="qhead" style="margin-top:.8rem">
-      <span class="sym" id="q-sym">AAPL</span>
-      <span class="nm" id="q-name">Apple Inc.</span>
-      <span class="last num" id="q-last">--</span>
-      <span class="chg num" id="q-chg">--</span>
-      <span class="small muted" id="q-ex">--</span>
-    </div>
-    <div class="chart"><svg id="chart" viewBox="0 0 900 300" preserveAspectRatio="none"></svg></div>
-    <div class="statgrid" id="stats"></div>
+  <div class="sectabs" id="ftabs">
+    <button data-tab="chart" class="act">[ CHART ]</button>
+    <button data-tab="crypto">[ CRYPTO ]</button>
+    <span class="meta" id="tab-meta">quotes &amp; range chart</span>
   </div>
 
-  <div class="panel" style="margin-top:.7rem">
-    <div class="spread"><h2>CRYPTO BOARD · TOP 12</h2><span class="small muted" id="crypto-src">coingecko</span></div>
-    <div class="scrollx">
-      <table class="tbl crypto" id="crypto">
-        <tr><th>#</th><th>ASSET</th><th>PRICE</th><th>1H</th><th>24H</th><th>7D</th><th>MKT CAP</th><th>VOLUME</th></tr>
-        <tr><td colspan="8" class="muted">loading…</td></tr>
-      </table>
+  <section class="sect" id="sec-chart">
+    <div class="panel">
+      <div class="row" style="margin-bottom:.6rem">
+        <input id="sym" type="text" placeholder="symbol e.g. NVDA" style="max-width:200px" autocomplete="off"/>
+        <button id="go">[ LOAD ]</button>
+        <div class="chips" id="quick"></div>
+      </div>
+      <div class="row" id="ranges">
+        <span class="small muted">RANGE</span>
+        <button data-r="1d" class="act">1D</button>
+        <button data-r="5d">5D</button>
+        <button data-r="1mo">1MO</button>
+        <button data-r="6mo">6MO</button>
+        <button data-r="1y">1Y</button>
+      </div>
+      <div class="qhead" style="margin-top:.8rem">
+        <span class="sym" id="q-sym">AAPL</span>
+        <span class="nm" id="q-name">Apple Inc.</span>
+        <span class="last num" id="q-last">--</span>
+        <span class="chg num" id="q-chg">--</span>
+        <span class="small muted" id="q-ex">--</span>
+      </div>
+      <div class="chart"><svg id="chart" viewBox="0 0 900 300" preserveAspectRatio="none"></svg></div>
+      <div class="statgrid" id="stats"></div>
     </div>
-  </div>
+  </section>
+
+  <section class="sect" id="sec-crypto" style="display:none">
+    <div class="panel">
+      <div class="spread">
+        <h2>CRYPTO BOARD · TOP 12</h2>
+        <div class="row">
+          <span class="small muted" id="crypto-src">coingecko</span>
+          <button id="crypto-refresh">[ REFRESH ]</button>
+        </div>
+      </div>
+      <div class="scrollx">
+        <table class="tbl crypto" id="crypto">
+          <tr><th>#</th><th>ASSET</th><th>PRICE</th><th>1H</th><th>24H</th><th>7D</th><th>MKT CAP</th><th>VOLUME</th></tr>
+          <tr><td colspan="8" class="muted">loading…</td></tr>
+        </table>
+      </div>
+      <div class="small muted" style="margin-top:.5rem">ranked by market cap · changes are 1h / 24h / 7d · click a row to chart its symbol where Yahoo carries it</div>
+    </div>
+  </section>
 </main>
 <div class="foot">PROTON-NEWS TERMINAL v2 · <a href="index.html">← DASHBOARD</a></div>
 
@@ -84,11 +115,25 @@ document.querySelectorAll("#ranges button").forEach(b=>b.onclick=()=>{
   load(document.getElementById("q-sym").textContent);
 });
 
+/* ---------- sub-sections ---------- */
+const tabMeta={chart:"quotes & range chart",crypto:"top 12 by market cap"};
+document.querySelectorAll("#ftabs button").forEach(b=>b.onclick=()=>{
+  const tab=b.dataset.tab;
+  document.querySelectorAll("#ftabs button").forEach(x=>x.classList.toggle("act",x===b));
+  document.getElementById("sec-chart").style.display=tab==="chart"?"":"none";
+  document.getElementById("sec-crypto").style.display=tab==="crypto"?"":"none";
+  document.getElementById("tab-meta").textContent=tabMeta[tab]||"";
+  if(tab==="chart") requestAnimationFrame(()=>animateChart());
+});
+
 function money(v,d){return v==null?"—":Number(v).toLocaleString(undefined,{maximumFractionDigits:d==null?2:d});}
+
+let lastChart=null;
 
 function drawChart(hist,colorPos){
   const svg=document.getElementById("chart");
   const closes=(hist||[]).map(h=>Number(h.close)).filter(v=>isFinite(v));
+  lastChart={hist:hist||[],colorPos};
   if(closes.length<2){svg.innerHTML='<text x="20" y="40" class="axis">no chart data</text>';return;}
   const W=900,H=300,P=34;
   const min=Math.min(...closes),max=Math.max(...closes);
@@ -110,17 +155,48 @@ function drawChart(hist,colorPos){
       <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
     </linearGradient></defs>
     ${grid}
-    <polygon points="${area}" fill="url(#g)"/>
-    <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2"/>
-    <circle cx="${x(closes.length-1)}" cy="${y(closes[closes.length-1])}" r="3.5" fill="currentColor"/>
+    <polygon id="c-area" points="${area}" fill="url(#g)" opacity="0"/>
+    <polyline id="c-line" points="${pts}" fill="none" stroke="currentColor" stroke-width="2.2"/>
+    <circle id="c-dot" cx="${x(closes.length-1)}" cy="${y(closes[closes.length-1])}" r="3.5" fill="currentColor" opacity="0"/>
     <text x="${P}" y="${H-8}" class="axis" fill="currentColor">${first}</text>
     <text x="${W-P}" y="${H-8}" class="axis" fill="currentColor" text-anchor="end">${last}</text>`;
+  animateChart();
+}
+
+function animateChart(){
+  const line=document.getElementById("c-line");
+  if(!line)return;
+  let len=0;
+  try{len=line.getTotalLength();}catch(e){}
+  if(!len){
+    const area=document.getElementById("c-area");
+    const dot=document.getElementById("c-dot");
+    if(area)area.setAttribute("opacity",".55");
+    if(dot)dot.setAttribute("opacity","1");
+    return;
+  }
+  line.style.strokeDasharray=len+" "+len;
+  line.style.strokeDashoffset=len;
+  line.getBoundingClientRect();
+  line.style.transition="stroke-dashoffset 1000ms cubic-bezier(.22,.61,.36,1)";
+  requestAnimationFrame(()=>{line.style.strokeDashoffset="0";});
+  const area=document.getElementById("c-area");
+  const dot=document.getElementById("c-dot");
+  if(area){
+    area.style.transition="opacity 500ms ease 620ms";
+    setTimeout(()=>area.setAttribute("opacity",".55"),20);
+  }
+  if(dot){
+    dot.style.transition="opacity 260ms ease 900ms";
+    setTimeout(()=>dot.setAttribute("opacity","1"),20);
+  }
 }
 
 async function load(sym){
   sym=(sym||"AAPL").toUpperCase();
   document.getElementById("sym").value=sym;
   document.getElementById("q-sym").textContent=sym;
+  document.getElementById("q-name").textContent="loading…";
   document.getElementById("stats").innerHTML='<div class="stat"><div class="k">STATUS</div><div class="v">loading…</div></div>';
   try{
     const d=await PN.fetchJSON(`/stocks/${encodeURIComponent(sym)}?range=${encodeURIComponent(range)}`,15000);
@@ -149,29 +225,39 @@ async function load(sym){
 
 document.getElementById("sym").addEventListener("keydown",e=>{if(e.key==="Enter")load(e.target.value.trim().toUpperCase());});
 
-(async()=>{
+/* ---------- crypto sub-section ---------- */
+const CRYPTO_HEAD='<tr><th>#</th><th>ASSET</th><th>PRICE</th><th>1H</th><th>24H</th><th>7D</th><th>MKT CAP</th><th>VOLUME</th></tr>';
+async function loadCrypto(){
+  const tbl=document.getElementById("crypto");
+  tbl.innerHTML=CRYPTO_HEAD+'<tr><td colspan="8" class="muted">loading…</td></tr>';
   try{
     const d=await PN.fetchJSON("/crypto/markets?limit=12",15000);
-    document.getElementById("crypto").innerHTML=
-      '<tr><th>#</th><th>ASSET</th><th>PRICE</th><th>1H</th><th>24H</th><th>7D</th><th>MKT CAP</th><th>VOLUME</th></tr>'+
-      d.map(c=>{
-        const cls=(v)=>Number(v)>=0?"pctpos":"pctneg";
-        const pct=(v)=>isFinite(Number(v))?(Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%":"—";
-        return `<tr><td class="muted">${c.rank}</td>
-          <td>${c.image?`<img src="${c.image}" alt="" loading="lazy"/>`:""} <b>${PN.esc(c.symbol)}</b> <span class="muted">${PN.esc(c.name)}</span></td>
-          <td>$${money(c.price,c.price<1?6:2)}</td>
-          <td class="${cls(c.chg1h)}">${pct(c.chg1h)}</td>
-          <td class="${cls(c.chg24h)}">${pct(c.chg24h)}</td>
-          <td class="${cls(c.chg7d)}">${pct(c.chg7d)}</td>
-          <td>$${money(c.mcap,0)}</td>
-          <td>$${money(c.volume,0)}</td></tr>`;
-      }).join("");
+    document.getElementById("crypto-src").textContent="coingecko · "+new Date().toLocaleTimeString();
+    tbl.innerHTML=CRYPTO_HEAD+d.map(c=>{
+      const cls=(v)=>Number(v)>=0?"pctpos":"pctneg";
+      const pct=(v)=>isFinite(Number(v))?(Number(v)>=0?"+":"")+Number(v).toFixed(2)+"%":"—";
+      return `<tr data-sym="${PN.esc(c.symbol)}">
+        <td class="muted">${c.rank}</td>
+        <td>${c.image?`<img src="${c.image}" alt="" loading="lazy"/>`:""} <b>${PN.esc(c.symbol)}</b> <span class="muted">${PN.esc(c.name)}</span></td>
+        <td>$${money(c.price,c.price<1?6:2)}</td>
+        <td class="${cls(c.chg1h)}">${pct(c.chg1h)}</td>
+        <td class="${cls(c.chg24h)}">${pct(c.chg24h)}</td>
+        <td class="${cls(c.chg7d)}">${pct(c.chg7d)}</td>
+        <td>$${money(c.mcap,0)}</td>
+        <td>$${money(c.volume,0)}</td></tr>`;
+    }).join("");
+    tbl.querySelectorAll("tr[data-sym]").forEach(tr=>tr.onclick=()=>{
+      document.querySelector('#ftabs button[data-tab="chart"]').click();
+      document.getElementById("sym").value=tr.dataset.sym;
+      load(tr.dataset.sym);
+    });
   }catch(e){
-    document.getElementById("crypto").innerHTML=
-      '<tr><th>#</th><th>ASSET</th><th>PRICE</th><th>1H</th><th>24H</th><th>7D</th><th>MKT CAP</th><th>VOLUME</th></tr>'+
-      '<tr><td colspan="8" class="muted">crypto uplink failed (rate limited?) — retry shortly</td></tr>';
+    document.getElementById("crypto-src").textContent="coingecko · unavailable";
+    tbl.innerHTML=CRYPTO_HEAD+'<tr><td colspan="8" class="muted">crypto uplink failed (rate limited?) — retry shortly</td></tr>';
   }
-})();
+}
+document.getElementById("crypto-refresh").onclick=loadCrypto;
+loadCrypto();
 
 load("AAPL");
 </script>

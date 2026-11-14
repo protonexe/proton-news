@@ -4,30 +4,47 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PROTON-NEWS // WEATHER</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='2' y='12' font-family='monospace' font-size='12' fill='%2300cc00'%3E%3E_%3C/text%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="dash.css"/>
 <style>
 .hero-temp{font-size:3.2rem;line-height:1;letter-spacing:-2px}
 .hero-cond{font-size:.82rem;color:var(--hi);letter-spacing:1px}
-.metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.5rem}
-.metric{border:1px solid var(--line);background:var(--panel);padding:.45rem .55rem}
-.metric .k{font-size:.58rem;letter-spacing:1.6px;color:var(--dim)}
-.metric .v{font-size:1rem;margin-top:.15rem;font-variant-numeric:tabular-nums}
-.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.45rem}
+.hero-feels{font-size:.66rem;color:var(--dim);letter-spacing:1px;margin-top:.2rem}
+.metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:.5rem}
+.metric{border:1px solid var(--line);background:var(--panel);padding:.45rem .55rem;min-width:0}
+.metric .k{font-size:.55rem;letter-spacing:1.5px;color:var(--dim)}
+.metric .v{font-size:.95rem;margin-top:.15rem;font-variant-numeric:tabular-nums}
+.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:.45rem}
 .fday{border:1px solid var(--line);padding:.5rem;background:var(--panel);text-align:center}
 .fday .d{font-size:.6rem;color:var(--dim);letter-spacing:1px}
 .fday .lo{font-size:.66rem;color:var(--dim)}
 .fday .hi2{font-size:.95rem}
-.hourbars{display:flex;align-items:flex-end;gap:2px;height:120px;margin-top:.6rem;border-bottom:1px solid var(--dim);padding-bottom:2px}
+.fday .x{font-size:.56rem;color:var(--dim);margin-top:.18rem;line-height:1.5}
+.hourbars{display:flex;align-items:flex-end;gap:2px;height:110px;margin-top:.55rem;border-bottom:1px solid var(--dim);padding-bottom:2px}
 .hourbars i{flex:1;background:var(--dim);position:relative;min-height:2px}
 .hourbars i.hot{background:var(--fg)}
-@media(max-width:700px){.hero-temp{font-size:2.4rem}}
+
+/* hourly strip */
+.hourly{display:flex;overflow-x:auto;padding:.35rem 0 .15rem;border-top:1px dashed var(--line);margin-top:.7rem}
+.hour{flex:1 0 50px;text-align:center;border-right:1px dashed var(--line);padding:.2rem .1rem}
+.hour:last-child{border-right:0}
+.hour .h{font-size:.55rem;color:var(--dim);letter-spacing:.5px}
+.hour .bar{height:40px;display:flex;align-items:flex-end;justify-content:center;margin:.22rem auto;width:7px}
+.hour .bar i{display:block;width:100%;background:var(--fg);opacity:.75;min-height:2px}
+.hour .t{font-size:.74rem;font-variant-numeric:tabular-nums}
+.hour .p{font-size:.54rem;color:var(--dim)}
+
+/* sun / sky panel */
+.sunrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem}
+.suntag{color:var(--hi)}
+@media(max-width:700px){.hero-temp{font-size:2.4rem}.metricgrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <header id="top"></header>
 <main class="wrap">
   <div class="hero spread">
-    <div><h1>&gt; WEATHER // STATION</h1><p>OPEN-METEO · CURRENT · AIR QUALITY · FORECAST</p></div>
+    <div><h1>&gt; WEATHER // STATION</h1><p>OPEN-METEO · CURRENT · HOURLY · AIR QUALITY · FORECAST</p></div>
     <div class="row">
       <input id="city" type="text" placeholder="city e.g. Tokyo" style="max-width:200px" autocomplete="off"/>
       <button id="go">[ LOOKUP ]</button>
@@ -37,37 +54,72 @@
   <div class="chips" id="quick" style="margin-bottom:.7rem"></div>
 
   <div class="grid">
-    <div class="panel w6" style="grid-column:span 6">
+    <div class="panel" style="grid-column:span 12">
       <div class="spread" style="align-items:flex-start">
         <div>
           <div class="k" id="loc">NEW YORK CITY</div>
           <div class="hero-temp num" id="temp">--°</div>
           <div class="hero-cond" id="cond">awaiting station...</div>
+          <div class="hero-feels" id="feels">feels like --° · --</div>
         </div>
-        <div class="small muted" id="coords">40.71 / -74.01</div>
+        <div class="small muted" style="text-align:right" id="coords">40.71 / -74.01</div>
       </div>
-      <div class="metricgrid" style="margin-top:.7rem">
+      <div class="metricgrid" style="margin-top:.75rem">
         <div class="metric"><div class="k">WIND</div><div class="v" id="wind">--</div></div>
+        <div class="metric"><div class="k">GUSTS</div><div class="v" id="gusts">--</div></div>
         <div class="metric"><div class="k">DIRECTION</div><div class="v" id="wdir">--</div></div>
+        <div class="metric"><div class="k">HUMIDITY</div><div class="v" id="humidity">--</div></div>
+        <div class="metric"><div class="k">DEW POINT</div><div class="v" id="dew">--</div></div>
+        <div class="metric"><div class="k">PRESSURE</div><div class="v" id="pressure">--</div></div>
+        <div class="metric"><div class="k">CLOUD COVER</div><div class="v" id="cloud">--</div></div>
+        <div class="metric"><div class="k">VISIBILITY</div><div class="v" id="visibility">--</div></div>
+        <div class="metric"><div class="k">PRECIP</div><div class="v" id="precip">--</div></div>
+        <div class="metric"><div class="k">UV INDEX</div><div class="v" id="uv">--</div></div>
         <div class="metric"><div class="k">CODE</div><div class="v" id="wcode">--</div></div>
-        <div class="metric"><div class="k">AQI (US)</div><div class="v" id="aqi">--</div></div>
+        <div class="metric"><div class="k">OBSERVED</div><div class="v" id="obs">--</div></div>
       </div>
+      <div class="spread" style="margin-top:.8rem">
+        <h2 style="margin:0">NEXT 24 HOURS</h2>
+        <span class="small muted" id="hour-note">—</span>
+      </div>
+      <div class="hourly" id="hourly"></div>
     </div>
 
     <div class="panel" style="grid-column:span 6">
-      <div class="spread"><h2>PARTICULATES</h2><span class="small muted" id="aqi-tag">—</span></div>
+      <div class="spread"><h2>AIR QUALITY</h2><span class="small muted" id="aqi-tag">—</span></div>
       <div class="metricgrid">
+        <div class="metric"><div class="k">US AQI</div><div class="v" id="aqi">--</div></div>
+        <div class="metric"><div class="k">EU AQI</div><div class="v" id="eaqi">--</div></div>
         <div class="metric"><div class="k">PM2.5</div><div class="v" id="pm25">--</div></div>
         <div class="metric"><div class="k">PM10</div><div class="v" id="pm10">--</div></div>
         <div class="metric"><div class="k">NO2</div><div class="v" id="no2">--</div></div>
+        <div class="metric"><div class="k">SO2</div><div class="v" id="so2">--</div></div>
+        <div class="metric"><div class="k">CO</div><div class="v" id="co">--</div></div>
         <div class="metric"><div class="k">O3</div><div class="v" id="o3">--</div></div>
+        <div class="metric"><div class="k">DUST</div><div class="v" id="dust">--</div></div>
+        <div class="metric"><div class="k">UV</div><div class="v" id="auvi">--</div></div>
       </div>
       <div class="hourbars" id="bars"></div>
       <div class="small muted" style="margin-top:.3rem">7-DAY TEMPERATURE SPREAD (LOW → HIGH)</div>
     </div>
 
+    <div class="panel" style="grid-column:span 6">
+      <div class="spread"><h2>SUN &amp; SKY</h2><span class="small muted" id="sky-note">—</span></div>
+      <div class="sunrow">
+        <div class="metric"><div class="k">SUNRISE</div><div class="v suntag" id="sunrise">--</div></div>
+        <div class="metric"><div class="k">SUNSET</div><div class="v suntag" id="sunset">--</div></div>
+        <div class="metric"><div class="k">DAYLIGHT</div><div class="v" id="daylight">--</div></div>
+        <div class="metric"><div class="k">UV MAX</div><div class="v" id="uvmax">--</div></div>
+        <div class="metric"><div class="k">RAIN CHANCE</div><div class="v" id="rainchance">--</div></div>
+        <div class="metric"><div class="k">RAIN TOTAL</div><div class="v" id="rainsum">--</div></div>
+        <div class="metric"><div class="k">MAX WIND</div><div class="v" id="maxwind">--</div></div>
+        <div class="metric"><div class="k">MAX GUST</div><div class="v" id="maxgust">--</div></div>
+      </div>
+      <div class="small muted" style="margin-top:.65rem;line-height:1.55" id="advice">—</div>
+    </div>
+
     <div class="panel w12" style="grid-column:span 12">
-      <div class="spread"><h2>FORECAST</h2><span class="small muted" id="fc-note">—</span></div>
+      <div class="spread"><h2>7-DAY FORECAST</h2><span class="small muted" id="fc-note">—</span></div>
       <div class="fc" id="forecast"></div>
     </div>
   </div>
@@ -88,35 +140,101 @@ document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>{
 });
 
 const CODES={0:"clear sky",1:"mainly clear",2:"partly cloudy",3:"overcast",45:"fog",48:"rime fog",
-  51:"light drizzle",53:"drizzle",55:"dense drizzle",61:"light rain",63:"rain",65:"heavy rain",
-  71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"showers",82:"violent showers",
-  95:"thunderstorm",96:"thunder + hail",99:"severe thunder"};
+  51:"light drizzle",53:"drizzle",55:"dense drizzle",56:"freezing drizzle",57:"freezing drizzle",
+  61:"light rain",63:"rain",65:"heavy rain",66:"freezing rain",67:"freezing rain",
+  71:"light snow",73:"snow",75:"heavy snow",77:"snow grains",80:"rain showers",81:"showers",82:"violent showers",
+  85:"snow showers",86:"heavy snow showers",95:"thunderstorm",96:"thunder + hail",99:"severe thunder"};
 
 function cond(code){return CODES[code]||("code "+code);}
-
+function compass(deg){
+  if(deg==null||!isFinite(Number(deg)))return "--";
+  const dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return dirs[Math.round((((Number(deg)%360)+360)%360)/22.5)%16]+" "+Math.round(deg)+"°";
+}
+function clock(iso){
+  if(!iso)return "--";
+  const d=new Date(iso);
+  if(isNaN(d))return String(iso).slice(11,16)||"--";
+  return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+function dur(sec){
+  if(sec==null)return "--";
+  const h=Math.floor(Number(sec)/3600),m=Math.round((Number(sec)%3600)/60);
+  return h+"h "+String(m).padStart(2,"0")+"m";
+}
+function n1(v,suf){return v==null||v===""?"--":Number(v).toFixed(1)+(suf||"");}
+function n0(v,suf){return v==null||v===""?"--":Math.round(Number(v))+(suf||"");}
 function setText(id,v){const n=document.getElementById(id);if(n)n.textContent=v;}
 function setHTML(id,v){const n=document.getElementById(id);if(n)n.innerHTML=v;}
+function aqiLabel(aqi){
+  if(!isFinite(Number(aqi)))return "—";
+  const v=Number(aqi);
+  return v<=50?"GOOD":v<=100?"MODERATE":v<=150?"UNHEALTHY (SENSITIVE)":v<=200?"UNHEALTHY":v<=300?"VERY UNHEALTHY":"HAZARDOUS";
+}
 
 async function fetchWeather(name,lat,lon){
   setText("loc",String(name).toUpperCase());
-  setText("temp","--°");setText("cond","contacting station...");
+  setText("temp","--°");setText("cond","contacting station...");setText("feels","feels like --° · --");
   if(lat==null||lon==null)return;
   document.getElementById("coords").textContent=Number(lat).toFixed(2)+" / "+Number(lon).toFixed(2);
   try{
-    const d=await PN.fetchJSON(`/weather/full?lat=${lat}&lon=${lon}`,16000);
-    const c=(d.forecast||{}).current_weather||{};
+    const d=await PN.fetchJSON(`/weather/full?lat=${lat}&lon=${lon}`,20000);
+    const f=d.forecast||{};
+    const c=f.current||{};
+    const cw=f.current_weather||{};
     const a=(d.aqi||{}).current||{};
-    const dai=(d.forecast||{}).daily||{};
-    setText("temp",(c.temperature??"--")+"°");
-    setText("cond",cond(c.weathercode).toUpperCase());
-    setText("wind",(c.windspeed??"--")+" km/h");
-    setText("wdir",(c.winddirection??"--")+"°");
-    setText("wcode",c.weathercode??"--");
+    const dai=f.daily||{};
+    const hou=f.hourly||{};
+
+    const temp=c.temperature_2m??cw.temperature;
+    const code=c.weather_code??cw.weathercode;
+    const wind=c.wind_speed_10m??cw.windspeed;
+    const wdir=c.wind_direction_10m??cw.winddirection;
+    const obs=c.time||cw.time;
+
+    setText("temp",(temp??"--")+"°");
+    setText("cond",cond(code).toUpperCase());
+    setText("feels","feels like "+(c.apparent_temperature??"--")+"° · "+(c.is_day===0?"night":"day"));
+    setText("wind",n1(wind," km/h"));
+    setText("gusts",n1(c.wind_gusts_10m," km/h"));
+    setText("wdir",compass(wdir));
+    setText("humidity",n0(c.relative_humidity_2m,"%"));
+    setText("dew",n1(c.dew_point_2m,"°"));
+    setText("pressure",n0(c.pressure_msl," hPa"));
+    setText("cloud",n0(c.cloud_cover,"%"));
+    setText("visibility",c.visibility==null?"--":(Number(c.visibility)/1000).toFixed(1)+" km");
+    setText("precip",n1(c.precipitation," mm"));
+    setText("uv",n1(a.uv_index));
+    setText("wcode",code??"--");
+    setText("obs",clock(obs));
+
+    // air quality
     setText("aqi",a.us_aqi??"--");
+    setText("eaqi",a.european_aqi??"--");
     setText("pm25",a.pm2_5??"--");setText("pm10",a.pm10??"--");
-    setText("no2",a.nitrogen_dioxide??"--");setText("o3",a.ozone??"--");
-    const aqi=Number(a.us_aqi);
-    setText("aqi-tag",isFinite(aqi)?(aqi<=50?"GOOD":aqi<=100?"MODERATE":aqi<=150?"UNHEALTHY (SENSITIVE)":"UNHEALTHY"):"—");
+    setText("no2",a.nitrogen_dioxide??"--");setText("so2",a.sulphur_dioxide??"--");
+    setText("co",a.carbon_monoxide??"--");setText("o3",a.ozone??"--");
+    setText("dust",a.dust??"--");setText("auvi",a.uv_index??"--");
+    setText("aqi-tag",aqiLabel(a.us_aqi));
+
+    // daily sun / extremes
+    const day0=0;
+    setText("sunrise",clock(dai.sunrise?.[day0]));
+    setText("sunset",clock(dai.sunset?.[day0]));
+    setText("daylight",dur(dai.daylight_duration?.[day0]));
+    setText("uvmax",n1(dai.uv_index_max?.[day0]));
+    setText("rainchance",n0(dai.precipitation_probability_max?.[day0],"%"));
+    setText("rainsum",n1(dai.precipitation_sum?.[day0]," mm"));
+    setText("maxwind",n1(dai.wind_speed_10m_max?.[day0]," km/h"));
+    setText("maxgust",n1(dai.wind_gusts_10m_max?.[day0]," km/h"));
+    const adv=[];
+    if(Number(dai.uv_index_max?.[day0])>=6)adv.push("high UV — cover up around midday");
+    if(Number(dai.precipitation_probability_max?.[day0])>=60)adv.push("rain likely — carry an umbrella");
+    if(Number(c.wind_gusts_10m)>=50)adv.push("strong gusts — secure loose items");
+    if(Number(a.us_aqi)>100)adv.push("air quality is poor — limit outdoor exertion");
+    setText("advice",adv.length?adv.join(" · "):"no advisories for today.");
+
+    // 7-day forecast
     const days=(dai.time||[]).slice(0,7);
     setText("fc-note",days.length?days[0]+" → "+days[days.length-1]:"no forecast");
     setHTML("forecast",days.map((t,i)=>{
@@ -125,10 +243,13 @@ async function fetchWeather(name,lat,lon){
         <div class="d">${dt.toLocaleDateString([], {weekday:"short"}).toUpperCase()} ${t.slice(5)}</div>
         <div class="hi2 num">${dai.temperature_2m_max?.[i]??"--"}°</div>
         <div class="lo num">low ${dai.temperature_2m_min?.[i]??"--"}°</div>
-        <div class="d" style="margin-top:.2rem">UV ${dai.uv_index_max?.[i]??"--"}</div>
+        <div class="x">${cond(dai.weather_code?.[i]).toUpperCase()}</div>
+        <div class="x">rain ${dai.precipitation_probability_max?.[i]??"--"}% · ${dai.precipitation_sum?.[i]??"--"} mm</div>
+        <div class="x">UV ${dai.uv_index_max?.[i]??"--"} · wind ${dai.wind_speed_10m_max?.[i]??"--"} km/h</div>
       </div>`;
     }).join("")||'<p class="muted small">forecast unavailable</p>');
-    // bars: normalize lows/highs over the week
+
+    // weekly spread bars
     const his=(dai.temperature_2m_max||[]).slice(0,7);
     const los=(dai.temperature_2m_min||[]).slice(0,7);
     if(his.length){
@@ -138,8 +259,34 @@ async function fetchWeather(name,lat,lon){
         return `<i class="${i===0?"hot":""}" style="height:${pct}%" title="${his[i]}° / ${los[i]}°"></i>`;
       }).join(""));
     }
+
+    // next 24 hours, starting from the station's current local hour
+    const times=hou.time||[];
+    let start=times.findIndex(t=>obs&&t>=String(obs).slice(0,13));
+    if(start<0)start=0;
+    const idx=[];
+    for(let i=start;i<Math.min(times.length,start+24);i++)idx.push(i);
+    const hTemps=idx.map(i=>Number(hou.temperature_2m?.[i])).filter(v=>isFinite(v));
+    const lo=hTemps.length?Math.min(...hTemps):0, hi=hTemps.length?Math.max(...hTemps):1, rng=hi-lo||1;
+    setText("hour-note",idx.length?clock(times[idx[0]])+" → "+clock(times[idx[idx.length-1]])+" local":"—");
+    setHTML("hourly",idx.map(i=>{
+      const tv=Number(hou.temperature_2m?.[i]);
+      const b=isFinite(tv)?Math.max(6,Math.round(((tv-lo)/rng)*100)):0;
+      const prob=hou.precipitation_probability?.[i];
+      return `<div class="hour" title="${cond(hou.weather_code?.[i])}">
+        <div class="h">${String(times[i]).slice(11,16)}</div>
+        <div class="bar"><i style="height:${b}%"></i></div>
+        <div class="t">${isFinite(tv)?Math.round(tv)+"°":"--"}</div>
+        <div class="p">${prob==null?"--":prob+"%"}</div>
+      </div>`;
+    }).join("")||'<span class="muted small">hourly data unavailable</span>');
+
+    // sky note
+    const cloudy=Number(c.cloud_cover);
+    setText("sky-note",isFinite(cloudy)?(cloudy<20?"mostly clear":cloudy<60?"partly cloudy":"mostly cloudy"):"—");
   }catch(e){
     setText("cond","station uplink failed — retry");
+    setText("feels","feels like --° · --");
   }
 }
 
