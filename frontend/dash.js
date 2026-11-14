@@ -8,7 +8,8 @@
     {id:"magenta",name:"MAGENTA",    hex:"#ff4fd8"},
     {id:"violet", name:"ULTRAVIOLET",hex:"#a48cff"}
   ];
-  const THEME_KEY="pn_dash_theme_v2";
+  // v3 resets older stored palettes so Paper White is the default again.
+  const THEME_KEY="pn_dash_theme_v3";
   const PAGES=[
     ["index.html","DASHBOARD"],["news.html","NEWS"],["finance.html","FINANCE"],
     ["sports.html","SPORTS"],["weather.html","WEATHER"],["world.html","WORLD"],

@@ -25,6 +25,14 @@
   color:var(--bg);background:var(--dim);padding:.05rem .25rem}
 .line-item .star{color:var(--hi);margin-right:.3rem}
 #readerpane{font-size:14px}
+/* content typography is em-based so A−/A+ actually resize the article */
+#readerpane .article h1{font-size:1.46em}
+#readerpane .article p{font-size:1em}
+#readerpane .article p.lead{font-size:1.08em}
+#readerpane .article blockquote{font-size:.92em}
+#readerpane .article .xbody p{font-size:1em}
+#readerpane .article .xload,
+#readerpane .article p.xfail{font-size:.9em}
 
 /* reader control bar: three tidy segmented groups instead of a button pile */
 .controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:stretch;justify-content:space-between;
@@ -41,6 +49,9 @@
   font-variant-numeric:tabular-nums;min-width:64px;justify-content:center}
 .ctlgroup .ctllabel{display:flex;align-items:center;padding:0 .5rem;color:var(--dim);
   font-size:.55rem;letter-spacing:1.6px;border-right:1px solid var(--line)}
+.ctlgroup .fssize{display:flex;align-items:center;justify-content:center;padding:0 .45rem;
+  min-width:2.6rem;color:var(--hi);font-size:.6rem;letter-spacing:.5px;
+  border-right:1px solid var(--line);font-variant-numeric:tabular-nums}
 @media(max-width:860px){
   #q{max-width:none}
   .controls{justify-content:flex-start}
@@ -100,7 +111,12 @@ function isRead(s){return readSet.has(keyOf(s));}
 function isSaved(s){return savedSet.has(keyOf(s));}
 function saveRead(){localStorage.setItem(KEY_READ,JSON.stringify([...readSet].slice(-400)));}
 function saveSaved(){localStorage.setItem(KEY_SAVED,JSON.stringify([...savedSet].slice(-500)));}
-function applyFs(){reader.style.fontSize=fs+"px";localStorage.setItem(KEY_FS,String(fs));}
+function applyFs(){
+  reader.style.fontSize=fs+"px";
+  localStorage.setItem(KEY_FS,String(fs));
+  const v=document.getElementById("c-fsval");
+  if(v)v.textContent=fs;
+}
 function hashFor(s){return "#a="+encodeURIComponent(keyOf(s));}
 
 function sectors(){
@@ -227,6 +243,7 @@ function open(i,opts){
         </div>
         <div class="ctlgroup">
           <span class="ctllabel">TEXT</span>
+          <span class="fssize" id="c-fsval">14</span>
           <button id="c-fsdown" title="smaller text">A−</button>
           <button id="c-fsup" title="larger text">A+</button>
         </div>
@@ -254,6 +271,7 @@ function open(i,opts){
     }catch(e){PN.toast("speech unavailable");}
   };
   reader.querySelector("#c-pos").textContent=String(i+1).padStart(2,"0")+" / "+String(view.length).padStart(2,"0");
+  applyFs();
   reader.scrollTop=0;
   if(window.innerWidth<=860)split.classList.add("reading");
   loadFullText(s,gen,sum);

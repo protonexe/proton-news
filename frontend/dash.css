@@ -1,5 +1,10 @@
 /* ===== PROTON-NEWS DASH v2 — themed CRT shell ===== */
-:root,
+/* Paper White is the always-on default, even before JS picks a theme. */
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--fg:#e8e8e8;--dim:#7e7e7e;--hi:#ffffff;
+  --red:#ff6b6b;--amber:#ffcc66;--panel:rgba(30,30,30,.6);--panel2:rgba(46,46,46,.7);
+  --line:rgba(232,232,232,.18);--glow:rgba(232,232,232,.22);--sel:rgba(232,232,232,.14);
+}
 :root[data-theme="green"]{
   --bg:#000;--bg2:#000800;--fg:#00cc00;--dim:#006600;--hi:#bbffbb;
   --red:#ff5555;--amber:#ffaa00;--panel:rgba(0,28,0,.35);--panel2:rgba(0,45,0,.5);
