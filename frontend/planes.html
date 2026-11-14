@@ -21,6 +21,11 @@
 #globe .scene-tooltip{background:var(--bg)!important;color:var(--fg)!important;border:1px solid var(--fg);
   padding:.35rem .55rem;font-family:"Courier New",ui-monospace,monospace!important;font-size:.64rem!important;
   line-height:1.5;box-shadow:0 0 18px var(--glow);text-shadow:none}
+#plane-tip{position:absolute;left:0;top:0;pointer-events:none;z-index:6;white-space:nowrap;
+  background:var(--bg);color:var(--fg);border:1px solid var(--fg);padding:.32rem .5rem;
+  font-size:.62rem;line-height:1.5;letter-spacing:.4px;box-shadow:0 0 16px var(--glow);
+  transform:translate(-50%,-145%);opacity:0;transition:opacity .1s}
+#plane-tip b{color:var(--hi);letter-spacing:1px}
 .leaflet-container{background:var(--bg2);font-family:inherit;font-size:.68rem;outline:none}
 .leaflet-container a{color:var(--fg)}
 .leaflet-control-attribution{background:var(--bg)!important;color:var(--dim)!important;font-size:.55rem!important}
@@ -284,6 +289,136 @@ function pointColor(f){
   return PAL.dim;
 }
 
+/* ---------- little plane models laid on the globe ---------- */
+const GLOBE_R=100;
+let planeMesh=null, planeList=[], planeCap=700, planeTip=null;
+
+function polarPt(lat,lng,alt){
+  const r=GLOBE_R*(1+(alt||0));
+  const la=lat*Math.PI/180, lo=lng*Math.PI/180;
+  return new THREE.Vector3(
+    r*Math.cos(la)*Math.sin(lo),
+    r*Math.sin(la),
+    r*Math.cos(la)*Math.cos(lo)
+  );
+}
+function planeShapeGeom(){
+  // top-down airliner silhouette: nose +Y, wings along X, flat in the XY plane
+  const pts=[
+    [0,1.00],[0.055,0.52],[0.085,0.15],[0.82,0.03],[0.82,-0.11],[0.095,-0.15],
+    [0.07,-0.52],[0.38,-0.66],[0.38,-0.76],[0.03,-0.63],[0,-0.80],[-0.03,-0.63],
+    [-0.38,-0.76],[-0.38,-0.66],[-0.07,-0.52],[-0.095,-0.15],[-0.82,-0.11],
+    [-0.82,0.03],[-0.085,0.15],[-0.055,0.52]
+  ];
+  const s=new THREE.Shape();
+  s.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)s.lineTo(pts[i][0],pts[i][1]);
+  s.closePath();
+  return new THREE.ShapeGeometry(s);
+}
+function planeMatrix(f){
+  const lat=Number(f.lat), lng=Number(f.lon);
+  const alt=f.on_ground?0.005:0.012;
+  const p=polarPt(lat,lng,alt);
+  const up=p.clone().normalize();
+  const north=polarPt(lat+0.04,lng,alt).sub(polarPt(lat-0.04,lng,alt)).normalize();
+  const east=polarPt(lat,lng+0.04,alt).sub(polarPt(lat,lng-0.04,alt)).normalize();
+  const h=(Number(f.heading)||0)*Math.PI/180;
+  const fwd=north.multiplyScalar(Math.cos(h)).add(east.multiplyScalar(Math.sin(h))).normalize();
+  const right=new THREE.Vector3().crossVectors(fwd,up).normalize();
+  const fwd2=new THREE.Vector3().crossVectors(up,right).normalize();
+  const q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,fwd2,up));
+  const scale=f.on_ground?3.0:(4.5+((Number(f.altitude_ft)||0)/40000)*1.4);
+  return {p,q,scale};
+}
+function initPlaneLayer(){
+  if(!globe||planeMesh)return;
+  const mat=new THREE.MeshBasicMaterial({transparent:true,opacity:.96,side:THREE.DoubleSide,depthWrite:false});
+  planeMesh=new THREE.InstancedMesh(planeShapeGeom(),mat,planeCap);
+  planeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  planeMesh.frustumCulled=false;
+  planeMesh.count=0;
+  globe.scene().add(planeMesh);
+
+  const el=document.getElementById("globe");
+  planeTip=document.createElement("div");
+  planeTip.id="plane-tip";
+  el.appendChild(planeTip);
+  bindPlanePicking(el);
+}
+function paintPlaneLayer(list){
+  if(!globe||!planeMesh)return;
+  const shown=list.slice(0,planeCap);
+  planeList=shown;
+  const m=new THREE.Matrix4(), scale=new THREE.Vector3(), col=new THREE.Color();
+  for(let i=0;i<shown.length;i++){
+    const f=shown[i], t=planeMatrix(f);
+    scale.set(t.scale,t.scale,t.scale);
+    m.compose(t.p,t.q,scale);
+    planeMesh.setMatrixAt(i,m);
+    col.set(pointColor(f));
+    planeMesh.setColorAt(i,col);
+  }
+  planeMesh.count=shown.length;
+  planeMesh.instanceMatrix.needsUpdate=true;
+  if(planeMesh.instanceColor)planeMesh.instanceColor.needsUpdate=true;
+  // instance bounds are cached; refresh so raycast picks the new positions
+  planeMesh.boundingSphere=null;
+  planeMesh.boundingBox=null;
+}
+function bindPlanePicking(el){
+  if(el.__picking)return;
+  el.__picking=true;
+  const canvas=el.querySelector("canvas");
+  if(!canvas)return;
+  const ray=new THREE.Raycaster();
+  const ndc=new THREE.Vector2();
+  const sphere=new THREE.Sphere(new THREE.Vector3(0,0,0),GLOBE_R);
+  const sphHit=new THREE.Vector3();
+  let down=null;
+  function pick(ev){
+    if(!globe||!planeMesh||!planeMesh.count)return null;
+    const rect=canvas.getBoundingClientRect();
+    ndc.x=((ev.clientX-rect.left)/rect.width)*2-1;
+    ndc.y=-((ev.clientY-rect.top)/rect.height)*2+1;
+    ray.setFromCamera(ndc,globe.camera());
+    const hits=ray.intersectObject(planeMesh,false);
+    if(!hits.length)return null;
+    // ignore planes hidden behind the globe
+    if(ray.ray.intersectSphere(sphere,sphHit)){
+      if(hits[0].distance>sphHit.distanceTo(ray.ray.origin)+0.5)return null;
+    }
+    return planeList[hits[0].instanceId]||null;
+  }
+  canvas.addEventListener("pointerdown",e=>{down={x:e.clientX,y:e.clientY};});
+  canvas.addEventListener("pointerup",e=>{
+    if(!down)return;
+    const moved=Math.abs(e.clientX-down.x)+Math.abs(e.clientY-down.y);
+    down=null;
+    if(moved>6)return;
+    const f=pick(e);
+    if(f)selectPlane(f,false);
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!planeTip)return;
+    const f=pick(e);
+    if(f){
+      canvas.style.cursor="pointer";
+      const r=el.getBoundingClientRect();
+      planeTip.innerHTML=`<b>${PN.esc(f.callsign||"UNKNOWN")}</b> · ${PN.esc(f.country||"—")}<br/>`+
+        `${f.on_ground?"ON GROUND":PN.fmtNum(f.altitude_ft||0,0)+" ft"} · `+
+        `${f.velocity_kts!=null?PN.fmtNum(f.velocity_kts,0)+" kt":"—"}`;
+      planeTip.style.left=(e.clientX-r.left)+"px";
+      planeTip.style.top=(e.clientY-r.top)+"px";
+      planeTip.style.opacity="1";
+    }else{
+      canvas.style.cursor="";
+      planeTip.style.opacity="0";
+    }
+  });
+  canvas.addEventListener("pointerleave",()=>{if(planeTip)planeTip.style.opacity="0";});
+}
+
 function sizeGlobe(){
   if(!globe)return;
   const el=document.getElementById("globe");
@@ -297,24 +432,24 @@ function applyGlobeTheme(){
     globe.backgroundColor(PAL.bg);
     const mat=globe.globeMaterial();
     if(mat){
-      // texture-driven globe material has no .color, so tint via emissive
+      // the dim texture keeps the bright plane models legible; just tint the glow
       if(mat.color&&mat.color.setStyle)mat.color.setStyle(PAL.fg);
       if(mat.emissive&&mat.emissive.setStyle){
         mat.emissive.setStyle(PAL.fg);
-        mat.emissiveIntensity=0.22;
+        mat.emissiveIntensity=0.05;
       }
-      mat.shininess=8;
+      mat.shininess=6;
     }
   }catch(e){}
   try{
     globe.atmosphereColor(PAL.fg);
-    globe.atmosphereAltitude(0.18);
+    globe.atmosphereAltitude(0.14);
   }catch(e){}
   try{
-    globe.pointColor(pointColor);
     globe.ringColor(()=>t=>rgba(PAL.hi,Math.max(0,1-t)));
     globe.ringsData(state.selected?[state.selected]:[]);
   }catch(e){}
+  if(planeMesh&&planeList.length)paintPlaneLayer(planeList);
 }
 
 function initGlobe(){
@@ -323,37 +458,26 @@ function initGlobe(){
   const el=document.getElementById("globe");
   try{
     globe=Globe()(el)
-      .globeImageUrl("vendor/earth-mono.jpg")
+      .globeImageUrl("vendor/earth-dim.jpg")
       .bumpImageUrl("vendor/earth-topology.png")
       .showAtmosphere(true)
-      .pointLat("lat")
-      .pointLng("lon")
-      .pointAltitude(f=>f.on_ground?0.004:Math.min(0.16,0.01+((Number(f.altitude_ft)||0)/40000)*0.11))
-      .pointRadius(f=>f.on_ground?0.12:0.19)
-      .pointResolution(3)
-      .pointsMerge(false)
-      .pointColor(pointColor)
-      .pointLabel(f=>`<b>${PN.esc(f.callsign||"UNKNOWN")}</b><br/>`+
-        `${PN.esc(f.country||"—")}<br/>`+
-        `${f.on_ground?"ON GROUND":PN.fmtNum(f.altitude_ft||0,0)+" ft"} · `+
-        `${f.velocity_kts!=null?PN.fmtNum(f.velocity_kts,0)+" kt":"—"}`)
-      .onPointClick(f=>selectPlane(f,true))
       .ringLat("lat")
       .ringLng("lon")
       .ringColor(()=>t=>rgba(PAL.hi,Math.max(0,1-t)))
-      .ringMaxRadius(4)
-      .ringPropagationSpeed(2.4)
-      .ringRepeatPeriod(900);
-    globe.pointsData([]).ringsData([]);
+      .ringMaxRadius(2.8)
+      .ringPropagationSpeed(1.8)
+      .ringRepeatPeriod(1100);
+    globe.ringsData([]);
     if(typeof globe.showGraticules==="function")globe.showGraticules(true);
     const ctrl=globe.controls();
     ctrl.autoRotate=true;
-    ctrl.autoRotateSpeed=0.35;
+    ctrl.autoRotateSpeed=0.32;
     ctrl.enableDamping=true;
     ctrl.dampingFactor=0.08;
     ctrl.rotateSpeed=0.55;
     globe.pointOfView({lat:22,lng:5,altitude:2.1});
     applyGlobeTheme();
+    initPlaneLayer();
     window.addEventListener("resize",()=>{if(state.mode==="globe")sizeGlobe();});
     return true;
   }catch(e){
@@ -366,9 +490,7 @@ function initGlobe(){
 function paintGlobe(list){
   if(!globe)return;
   refreshPalette();
-  const shown=list.slice(0,1400);
-  globe.pointsData(shown);
-  globe.pointColor(pointColor);
+  paintPlaneLayer(list);
   globe.ringsData(state.selected?[state.selected]:[]);
   sizeGlobe();
 }

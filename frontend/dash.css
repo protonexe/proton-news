@@ -100,7 +100,6 @@ h1,h2,h3,h4,p,span,div,small,td,th,label{color:inherit}
 .radar i{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--hi);box-shadow:0 0 7px var(--fg)}
 .radar i.r{background:var(--red);box-shadow:0 0 7px var(--red)}
 .bar{display:inline-block;height:9px;background:var(--fg);opacity:.85;vertical-align:middle}
-.warn-banner{border:1px dashed var(--dim);padding:.5rem .7rem;font-size:.72rem;color:var(--dim);margin-bottom:.7rem;line-height:1.5}
 .foot{max-width:1500px;margin:1.4rem auto 2rem;padding:0 .9rem;font-size:.64rem;color:var(--dim);letter-spacing:1px;text-align:center}
 .foot a{color:var(--dim);text-decoration:underline}
 .foot a:hover{color:var(--fg)}
