@@ -25,6 +25,8 @@
 .globe-wrap{position:relative;height:470px;border:1px solid var(--line);background:var(--bg2);overflow:hidden;cursor:grab}
 .globe-wrap:active{cursor:grabbing}
 .globe-wrap canvas{display:block}
+.globe-wrap::after{content:"DRAG TO SPIN · SCROLL TO ZOOM";position:absolute;left:.65rem;bottom:.55rem;
+  font-size:.55rem;letter-spacing:1.5px;color:var(--dim);pointer-events:none;opacity:.85;z-index:2}
 .globe-wrap .scene-tooltip{background:var(--bg)!important;color:var(--fg)!important;border:1px solid var(--fg);
   padding:.35rem .55rem;font-family:"Courier New",ui-monospace,monospace!important;font-size:.64rem!important;
   line-height:1.5;box-shadow:0 0 18px var(--glow);text-shadow:none}
@@ -97,10 +99,10 @@
 </main>
 <div class="foot">PROTON-NEWS TERMINAL v2 · <a href="index.html">← DASHBOARD</a></div>
 
-<script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three-globe@2.31.0/dist/three-globe.min.js"></script>
-<script src="https://unpkg.com/globe.gl@2.32.0/dist/globe.gl.min.js"></script>
-<script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/three-globe.min.js"></script>
+<script src="vendor/globe.gl.min.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
 <script src="dash.js"></script>
 <script>
 PN.mountHeader("world.html");
@@ -108,9 +110,9 @@ PN.mountHeader("world.html");
 let rows=[], regions=[], filter="", totalStories=0;
 
 /* ---------- interactive coverage globe ---------- */
-const GEO_URL="https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
-const EARTH_TEX="https://unpkg.com/three-globe/example/img/earth-dark.jpg";
-const EARTH_BUMP="https://unpkg.com/three-globe/example/img/earth-topology.png";
+const GEO_URL="vendor/countries-110m.json";
+const EARTH_TEX="vendor/earth-mono.jpg";
+const EARTH_BUMP="vendor/earth-topology.png";
 const COUNTRY_ALIAS={
   "united states":"united states of america","usa":"united states of america","us":"united states of america",
   "uk":"united kingdom","great britain":"united kingdom","russian federation":"russia",
@@ -153,8 +155,8 @@ function capColor(f){
   const P=pal();
   if(polySelected(f))return rgba(P.amber,.95);
   const n=polyCount(f);
-  if(!n)return rgba(P.dim,.18);
-  return rgba(P.fg,.26+.62*(n/maxStories));
+  if(!n)return rgba(P.dim,.30);
+  return rgba(P.fg,.30+.60*(n/maxStories));
 }
 function sideColor(f){
   const P=pal();
@@ -162,7 +164,7 @@ function sideColor(f){
   const n=polyCount(f);
   return n?rgba(P.fg,.28):rgba(P.dim,.08);
 }
-function strokeColor(){return rgba(pal().dim,.45);}
+function strokeColor(){return rgba(pal().dim,.65);}
 function polyAltitude(f){
   if(polySelected(f))return .055;
   const n=polyCount(f);
@@ -251,7 +253,7 @@ function initGlobe(){
       .globeImageUrl(EARTH_TEX)
       .bumpImageUrl(EARTH_BUMP)
       .showAtmosphere(true)
-      .atmosphereAltitude(.17)
+      .atmosphereAltitude(.2)
       .polygonCapColor(capColor)
       .polygonSideColor(sideColor)
       .polygonStrokeColor(strokeColor)
@@ -259,10 +261,11 @@ function initGlobe(){
       .polygonLabel(polyLabel)
       .onPolygonClick(onPolyClick)
       .onPolygonHover(f=>{el.style.cursor=f?"pointer":"grab";});
+    if(typeof globe.showGraticules==="function")globe.showGraticules(true);
     const ctrl=globe.controls();
     ctrl.autoRotate=true;ctrl.autoRotateSpeed=.34;ctrl.enableDamping=true;
     ctrl.dampingFactor=.09;ctrl.rotateSpeed=.52;
-    globe.pointOfView({lat:20,lng:5,altitude:2.05});
+    globe.pointOfView({lat:20,lng:5,altitude:1.55});
     applyGlobeTheme();
     window.addEventListener("resize",()=>sizeGlobe());
     document.getElementById("spin").onchange=e=>{if(globe)globe.controls().autoRotate=e.target.checked;};
@@ -271,7 +274,7 @@ function initGlobe(){
       document.getElementById("q").value="";
       paint();updatePick();
       if(globe){
-        globe.pointOfView({lat:20,lng:5,altitude:2.05},700);
+        globe.pointOfView({lat:20,lng:5,altitude:1.55},700);
         globe.polygonsData(geoFeatures);
       }
     };
@@ -402,6 +405,23 @@ function apply(rowsIn){
   apply(Object.values(map));
 })();
 
-loadGeo();</script>
+loadGeo();
+
+// explicit failure message if the globe never comes up
+setTimeout(()=>{
+  if(globe)return;
+  const fb=document.getElementById("globe-fallback");
+  const note=document.getElementById("gnote");
+  let webgl=false;
+  try{
+    const c=document.createElement("canvas");
+    webgl=!!(c.getContext("webgl2")||c.getContext("webgl")||c.getContext("experimental-webgl"));
+  }catch(e){}
+  const msg=webgl
+    ? "3D globe could not start — the globe libraries did not load. Refresh the page."
+    : "WebGL is disabled in this browser. Enable hardware acceleration (chrome://settings/system), or use the country index below.";
+  if(fb)fb.innerHTML=`<div style="padding:1.2rem;max-width:560px;line-height:1.7"><b>GLOBE UNAVAILABLE</b><br/>${msg}</div>`;
+  if(note)note.textContent="globe unavailable";
+},9000);</script>
 </body>
 </html>

@@ -37,6 +37,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def no_store_pages(request, call_next):
+    """Always revalidate HTML so UI fixes show up without a manual hard refresh."""
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
 # Country values MUST match frontend globe ADMIN names (Natural Earth).
 # See frontend/globe-data.js window.__GEO__ properties.ADMIN.
 RAW_FEEDS = [
